@@ -1,78 +1,37 @@
-# gemit-cli
+﻿# gemit-cli
 
 CLI para sugerir mensagens de commit e nomes de branch com IA.
 
 ## Instalação
 
 ```bash
-npm install -g gemit-cli
+npm install -g @ericknovaes56/gemit-cli
 ```
 
-## Configuração (global)
-
-O `gemit init` salva a configuração global, para funcionar em qualquer projeto.
-
-- Windows: `%APPDATA%\gemit\.env`
-- macOS: `~/Library/Application Support/gemit/.env`
-- Linux: `$XDG_CONFIG_HOME/gemit/.env` ou `~/.config/gemit/.env`
+## Configuração
 
 ```bash
 gemit init
 ```
 
-Opcionalmente, para usar `.env` local no projeto atual:
+Opcional (somente no projeto atual):
 
 ```bash
 gemit init --local
 ```
 
-## Comandos
-
-### Ver versão
+## Uso
 
 ```bash
-gemit -v
+gemit                # sugere commit (padrão)
+gemit commit         # sugere commit
+gemit branch "texto" # sugere branch
+gemit doctor         # verifica configuração
+gemit -v             # versão
 ```
 
-### Sugerir commit (padrão)
+## Provedores suportados
 
-```bash
-gemit
-```
-
-ou
-
-```bash
-gemit commit
-```
-
-Fluxo:
-
-1. Mostra progresso da IA durante a requisição.
-2. Sugere a mensagem de commit.
-3. Pergunta se deve criar o commit.
-4. Após o commit, pergunta se deve fazer `git push` (padrão `N`), detectando branch local e upstream remoto.
-
-### Sugerir branch
-
-```bash
-gemit branch "descricao da feature"
-```
-
-### Diagnóstico de configuração
-
-```bash
-gemit doctor
-```
-
-## Variáveis de ambiente
-
-```env
-LLM_PROVIDER="google" # google | openai | anthropic
-LLM_MODEL="gemini-2.5-flash"
-
-GOOGLE_API_KEY=""
-GEMINI_API_KEY=""
-OPENAI_API_KEY=""
-ANTHROPIC_API_KEY=""
-```
+- `google`
+- `openai`
+- `anthropic`
