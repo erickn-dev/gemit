@@ -26,6 +26,9 @@ gemit init --local
 gemit                # sugere commit (padrão)
 gemit commit         # sugere commit
 gemit branch "texto" # sugere branch
+gemit pr             # gera título + descrição de PR
+gemit log            # resume o trabalho do branch
+gemit changelog      # gera changelog em changelogs/nome-data.md
 gemit doctor         # verifica configuração
 gemit -v             # versão
 ```

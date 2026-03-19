@@ -80,7 +80,7 @@ export async function generateCommit(): Promise<void> {
   console.log(style(message, ui.bold));
   console.log();
 
-  const confirmed = await askConfirmation("Commit using this message? (y/n): ");
+  const confirmed = await askConfirmation("Commit using this message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
     console.log(`${warn("CANCELED")} Commit was not created.`);
     return;

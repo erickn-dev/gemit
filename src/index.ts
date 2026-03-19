@@ -5,6 +5,9 @@ import { loadConfig } from "./config.js";
 import { getCliVersion } from "./cli-version.js";
 import { generateCommit } from "./commands/commit.js";
 import { suggestBranch } from "./commands/branch.js";
+import { generatePullRequestText } from "./commands/pr.js";
+import { summarizeBranchLog } from "./commands/log.js";
+import { generateChangelog } from "./commands/changelog.js";
 import { doctorConfig, initConfig, type InitConfigOptions } from "./commands/config.js";
 import { failAndExit, style, ui } from "./ui.js";
 
@@ -24,6 +27,9 @@ Examples:
   gemit
   gemit commit
   gemit branch "oauth login screen"
+  gemit pr
+  gemit log
+  gemit changelog
   gemit init
   gemit doctor
 `
@@ -42,6 +48,19 @@ program
     }
     await suggestBranch(description);
   });
+
+program
+  .command("pr")
+  .description("Generate PR title and description from branch commits")
+  .action(generatePullRequestText);
+
+program.command("log").description("Summarize what was done in the current branch").action(summarizeBranchLog);
+
+program
+  .command("changelog")
+  .description("Generate a changelog file from commit history")
+  .argument("[name]", "Base file name (default: current branch name)")
+  .action(generateChangelog);
 
 program
   .command("init")
