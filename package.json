@@ -1,20 +1,32 @@
 {
-  "name": "gemit-cli",
-  "version": "1.1.1",
+  "name": "@ericknovaes56/gemit-cli",
+  "version": "1.1.2",
   "description": "CLI para sugerir commit/branch com IA, com config global e fluxo opcional de push",
-  "main": "dist/index.js",
+  "main": "dist-secure/index.js",
   "bin": {
-    "gemit": "./dist-secure/index.js"
+    "gemit": "dist-secure/index.js"
   },
+  "files": [
+    "dist-secure/**/*",
+    "README.md"
+  ],
   "scripts": {
     "dev": "tsx index.ts",
     "build": "tsc -p tsconfig.json",
     "build:secure": "npm run build && node scripts/build-secure.mjs",
+    "prepack": "npm run build:secure",
     "start": "node dist/index.js",
     "start:secure": "node dist-secure/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["git", "commit", "branch", "cli", "ai", "conventional-commits"],
+  "keywords": [
+    "git",
+    "commit",
+    "branch",
+    "cli",
+    "ai",
+    "conventional-commits"
+  ],
   "author": "",
   "license": "ISC",
   "type": "module",

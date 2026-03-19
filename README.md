@@ -76,11 +76,3 @@ GEMINI_API_KEY=""
 OPENAI_API_KEY=""
 ANTHROPIC_API_KEY=""
 ```
-
-## Desenvolvimento local
-
-```bash
-npm install
-npm run build
-npm run build:secure
-```
