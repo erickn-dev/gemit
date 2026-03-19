@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { loadConfig } from "./config.js";
 import { getCliVersion } from "./cli-version.js";
 import { generateCommit } from "./commands/commit.js";
+import { addAndCommit } from "./commands/add.js";
 import { suggestBranch } from "./commands/branch.js";
 import { generatePullRequestText } from "./commands/pr.js";
 import { summarizeBranchLog } from "./commands/log.js";
@@ -25,7 +26,9 @@ program.addHelpText(
   `
 Examples:
   gemit
-  gemit commit
+  gemit commit --all
+  gemit commit --check
+  gemit add --all
   gemit branch "oauth login screen"
   gemit pr
   gemit log
@@ -35,7 +38,19 @@ Examples:
 `
 );
 
-program.command("commit").description("Suggest a commit message and optionally commit").action(generateCommit);
+program
+  .command("commit")
+  .description("Run stage/summarize/suggest/confirm flow for commits")
+  .option("--all", "Stage all changes first (git add .)")
+  .option("--check", "Run lint/test (if present) before creating commit")
+  .action((options: { all?: boolean; check?: boolean }) => generateCommit(options));
+
+program
+  .command("add")
+  .description("Stage changes and run commit suggestion flow")
+  .option("--all", "Stage all changes first (required)")
+  .option("--check", "Run lint/test (if present) before creating commit")
+  .action((options: { all?: boolean; check?: boolean }) => addAndCommit(options));
 
 program
   .command("branch")

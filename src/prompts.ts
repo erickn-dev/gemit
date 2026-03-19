@@ -25,3 +25,14 @@ export async function askInput(question: string): Promise<string> {
   rl.close();
   return answer.trim();
 }
+
+export async function askEditableInput(question: string, defaultValue: string): Promise<string> {
+  const rl = createInterface({ input, output });
+  const answer = await rl.question(question);
+  rl.close();
+  const trimmed = answer.trim();
+  if (!trimmed) {
+    return defaultValue;
+  }
+  return trimmed;
+}

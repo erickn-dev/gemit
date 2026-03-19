@@ -23,8 +23,10 @@ gemit init --local
 ## Uso
 
 ```bash
-gemit                # sugere commit (padrão)
-gemit commit         # sugere commit
+gemit                # sugere commit usando arquivos staged
+gemit commit --all   # git add . + fluxo de commit em 4 passos
+gemit commit --check # roda lint/test (se existirem) antes do commit
+gemit add --all      # equivalente a git add . + sugestão de commit
 gemit branch "texto" # sugere branch
 gemit pr             # gera título + descrição de PR
 gemit log            # resume o trabalho do branch

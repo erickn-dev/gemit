@@ -1,10 +1,14 @@
 import { execFileSync, execSync } from "child_process";
 import { failAndExit } from "./ui.js";
 
+function runGit(args: string[]): string {
+  return execFileSync("git", args, { stdio: "pipe" }).toString();
+}
+
 export function getGitStatus(): string {
   try {
-    const status = execSync("git status").toString();
-    const diff = execSync("git diff --stat").toString();
+    const status = runGit(["status"]);
+    const diff = runGit(["diff", "--stat"]);
     return `${status}\n${diff}`;
   } catch {
     failAndExit("Not a git repository.");
@@ -225,5 +229,99 @@ export function getCommitHistory(limit = 120): GitCommit[] {
       .filter((commit) => Boolean(commit.hash) && Boolean(commit.subject));
   } catch {
     failAndExit("Could not read git commit history.");
+  }
+}
+
+export type StagedFileChange = {
+  status: string;
+  path: string;
+};
+
+export type StagedDiffMetrics = {
+  fileCount: number;
+  insertions: number;
+  deletions: number;
+  patchChars: number;
+  truncated: boolean;
+};
+
+export type StagedContext = {
+  files: StagedFileChange[];
+  diffStat: string;
+  patch: string;
+  metrics: StagedDiffMetrics;
+};
+
+function parseNameStatusLine(line: string): StagedFileChange | null {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const status = parts[0].trim();
+  const path = parts[parts.length - 1].trim();
+  if (!status || !path) {
+    return null;
+  }
+
+  return { status, path };
+}
+
+export function stageAll(): void {
+  try {
+    execFileSync("git", ["add", "."], { stdio: "inherit" });
+  } catch {
+    failAndExit("Failed to stage files with git add .");
+  }
+}
+
+export function getStagedContext(maxPatchChars = 10000): StagedContext {
+  try {
+    const filesRaw = runGit(["diff", "--cached", "--name-status"]);
+    const diffStat = runGit(["diff", "--cached", "--stat"]).trim();
+    const patchRaw = runGit(["diff", "--cached"]);
+    const numStatRaw = runGit(["diff", "--cached", "--numstat"]);
+
+    const files = filesRaw
+      .split(/\r?\n/)
+      .map((line) => parseNameStatusLine(line))
+      .filter((change): change is StagedFileChange => Boolean(change));
+
+    let insertions = 0;
+    let deletions = 0;
+    for (const line of numStatRaw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const [added = "0", deleted = "0"] = trimmed.split(/\s+/);
+      const addedValue = Number.parseInt(added, 10);
+      const deletedValue = Number.parseInt(deleted, 10);
+      insertions += Number.isNaN(addedValue) ? 0 : addedValue;
+      deletions += Number.isNaN(deletedValue) ? 0 : deletedValue;
+    }
+
+    const truncated = patchRaw.length > maxPatchChars;
+    const patch = truncated ? patchRaw.slice(0, maxPatchChars) : patchRaw;
+
+    return {
+      files,
+      diffStat,
+      patch: patch.trim(),
+      metrics: {
+        fileCount: files.length,
+        insertions,
+        deletions,
+        patchChars: patchRaw.length,
+        truncated,
+      },
+    };
+  } catch {
+    failAndExit("Failed to inspect staged changes.");
   }
 }
