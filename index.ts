@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
-import "dotenv/config";
 import { execFileSync, execSync } from "child_process";
 import { Command } from "commander";
-import { existsSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { createInterface } from "readline/promises";
 import { stdin as input, stdout as output } from "process";
+import { basename, dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { getGlobalEnvPath, loadConfig } from "./config.js";
 import { createLLM, extractMessageText } from "./llm.js";
 
 const ui = {
@@ -17,6 +19,8 @@ const ui = {
   yellow: "\x1b[33m",
   red: "\x1b[31m",
 };
+
+loadConfig();
 
 function style(text: string, ...codes: string[]): string {
   return `${codes.join("")}${text}${ui.reset}`;
@@ -47,6 +51,54 @@ function bad(text: string): string {
 function failAndExit(message: string): never {
   console.error(`${bad("ERROR")} ${message}`);
   process.exit(1);
+}
+
+function getCliVersion(): string {
+  try {
+    const currentFile = fileURLToPath(import.meta.url);
+    const currentDir = dirname(currentFile);
+    const packageJsonPath =
+      basename(currentDir) === "dist" || basename(currentDir) === "dist-secure"
+        ? join(currentDir, "..", "package.json")
+        : join(currentDir, "package.json");
+    const content = readFileSync(packageJsonPath, "utf8");
+    const parsed = JSON.parse(content) as { version?: string };
+    return parsed.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+async function withProgress<T>(message: string, work: () => Promise<T>): Promise<T> {
+  if (!process.stdout.isTTY) {
+    console.log(message);
+    return work();
+  }
+
+  const frames = ["|", "/", "-", "\\"];
+  let frameIndex = 0;
+
+  const render = () => {
+    const frame = frames[frameIndex % frames.length];
+    process.stdout.write(`\r${style(frame, ui.cyan)} ${message}`);
+    frameIndex += 1;
+  };
+
+  render();
+  const timer = setInterval(render, 120);
+
+  try {
+    const result = await work();
+    clearInterval(timer);
+    process.stdout.write("\r\x1b[2K");
+    console.log(`${ok("OK")} ${message}`);
+    return result;
+  } catch (error) {
+    clearInterval(timer);
+    process.stdout.write("\r\x1b[2K");
+    console.log(`${bad("ERROR")} ${message}`);
+    throw error;
+  }
 }
 
 function getLLM() {
@@ -93,6 +145,108 @@ function branchExists(branchName: string): boolean {
   }
 }
 
+function getCurrentBranch(): string {
+  try {
+    const branch = execSync("git branch --show-current", { stdio: "pipe" }).toString().trim();
+    if (!branch) {
+      failAndExit("Could not detect current branch.");
+    }
+    return branch;
+  } catch {
+    failAndExit("Could not detect current branch.");
+  }
+}
+
+type UpstreamInfo = {
+  fullName: string;
+  remote: string;
+  branch: string;
+};
+
+function getUpstreamInfo(): UpstreamInfo | null {
+  try {
+    const fullName = execSync("git rev-parse --abbrev-ref --symbolic-full-name @{upstream}", {
+      stdio: "pipe",
+    })
+      .toString()
+      .trim();
+    const slashIndex = fullName.indexOf("/");
+    if (slashIndex <= 0) {
+      return null;
+    }
+    return {
+      fullName,
+      remote: fullName.slice(0, slashIndex),
+      branch: fullName.slice(slashIndex + 1),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getDefaultRemote(): string | null {
+  try {
+    const remotes = execSync("git remote", { stdio: "pipe" })
+      .toString()
+      .split(/\r?\n/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (remotes.length === 0) {
+      return null;
+    }
+    if (remotes.includes("origin")) {
+      return "origin";
+    }
+    return remotes[0];
+  } catch {
+    return null;
+  }
+}
+
+async function maybePushCurrentBranch(): Promise<void> {
+  const currentBranch = getCurrentBranch();
+  const upstream = getUpstreamInfo();
+
+  if (upstream) {
+    const shouldPush = await askConfirmation(
+      `Push current branch "${currentBranch}" to "${upstream.fullName}" now? (y/N): `
+    );
+    if (!shouldPush) {
+      return;
+    }
+
+    try {
+      execFileSync("git", ["push", upstream.remote, `${currentBranch}:${upstream.branch}`], {
+        stdio: "inherit",
+      });
+      console.log(`${ok("OK")} Push completed to ${upstream.fullName}.`);
+    } catch {
+      failAndExit(`Failed to push to ${upstream.fullName}.`);
+    }
+    return;
+  }
+
+  const remote = getDefaultRemote();
+  if (!remote) {
+    console.log(`${warn("SKIPPED")} No git remote configured. Push not available.`);
+    return;
+  }
+
+  const shouldPush = await askConfirmation(
+    `No upstream found. Push "${currentBranch}" to "${remote}/${currentBranch}" and set upstream? (y/N): `
+  );
+  if (!shouldPush) {
+    return;
+  }
+
+  try {
+    execFileSync("git", ["push", "--set-upstream", remote, currentBranch], { stdio: "inherit" });
+    console.log(`${ok("OK")} Push completed and upstream configured (${remote}/${currentBranch}).`);
+  } catch {
+    failAndExit(`Failed to push "${currentBranch}" to "${remote}".`);
+  }
+}
+
 function sanitizeBranchName(rawName: string): string {
   const normalized = rawName
     .normalize("NFD")
@@ -126,7 +280,7 @@ async function generateCommit(): Promise<void> {
     ${gitInfo}
   `;
 
-  const result = await llm.invoke(prompt);
+  const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
   const message = extractMessageText(result.content);
 
   if (!message) {
@@ -148,6 +302,8 @@ async function generateCommit(): Promise<void> {
   } catch {
     failAndExit("Failed to create commit. Check if you have staged files.");
   }
+
+  await maybePushCurrentBranch();
 }
 
 async function suggestBranch(description: string): Promise<void> {
@@ -166,7 +322,7 @@ async function suggestBranch(description: string): Promise<void> {
     ${description}
   `;
 
-  const result = await llm.invoke(prompt);
+  const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
   const rawBranch = extractMessageText(result.content);
   const branchName = sanitizeBranchName(rawBranch);
 
@@ -207,10 +363,14 @@ function getProviderKeyName(provider: Provider): "GOOGLE_API_KEY" | "OPENAI_API_
   return "ANTHROPIC_API_KEY";
 }
 
-async function initConfig(): Promise<void> {
-  const envPath = ".env";
+type InitConfigOptions = {
+  local?: boolean;
+};
+
+async function initConfig(options: InitConfigOptions = {}): Promise<void> {
+  const envPath = options.local ? ".env" : getGlobalEnvPath();
   if (existsSync(envPath)) {
-    const overwrite = await askConfirmation(".env already exists. Overwrite? (y/n): ");
+    const overwrite = await askConfirmation(`${envPath} already exists. Overwrite? (y/n): `);
     if (!overwrite) {
       console.log("Setup canceled.");
       return;
@@ -245,11 +405,16 @@ async function initConfig(): Promise<void> {
     "",
   ].join("\n");
 
+  mkdirSync(dirname(envPath), { recursive: true });
   writeFileSync(envPath, envContent, "utf8");
   console.log(`${ok("OK")} Configuration saved to ${envPath}.`);
 }
 
 function doctorConfig(): void {
+  const globalEnvPath = getGlobalEnvPath();
+  const localEnvPath = ".env";
+  const localExists = existsSync(localEnvPath);
+  const globalExists = existsSync(globalEnvPath);
   const provider = (process.env.LLM_PROVIDER || "").toLowerCase();
   const model = process.env.LLM_MODEL || "";
   const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
@@ -271,6 +436,10 @@ function doctorConfig(): void {
   const expectedKeyOk = Boolean(expectedKey);
 
   section("DIAGNOSTICS");
+  console.log(`Global .env path ${globalEnvPath}`);
+  console.log(`Global .env      ${globalExists ? ok("found") : warn("missing")}`);
+  console.log(`Local .env       ${localExists ? warn("found (overrides global)") : ok("not found")}`);
+  console.log();
   console.log(`LLM_PROVIDER   ${providerOk ? ok("ok") : bad("missing/invalid")}`);
   console.log(`LLM_MODEL      ${modelOk ? ok("ok") : bad("missing")}`);
   console.log(`${expectedKeyName.padEnd(14, " ")} ${expectedKeyOk ? ok("ok") : bad("missing")}`);
@@ -289,7 +458,7 @@ const program = new Command();
 program
   .name("gemit")
   .description(style("Suggest commit messages and branch names with AI", ui.cyan))
-  .version("1.0.0");
+  .version(getCliVersion(), "-v, --version", "output the version number");
 
 program.addHelpText(
   "after",
@@ -319,8 +488,9 @@ program
 
 program
   .command("init")
-  .description("Configure provider, model, and API key in .env")
-  .action(initConfig);
+  .description("Configure provider, model, and API key (global by default)")
+  .option("--local", "Write configuration to local .env in current project")
+  .action((options: InitConfigOptions) => initConfig(options));
 
 program
   .command("doctor")

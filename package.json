@@ -1,7 +1,7 @@
 {
   "name": "gemit-cli",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.1.1",
+  "description": "CLI para sugerir commit/branch com IA, com config global e fluxo opcional de push",
   "main": "dist/index.js",
   "bin": {
     "gemit": "./dist-secure/index.js"
@@ -14,7 +14,7 @@
     "start:secure": "node dist-secure/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["git", "commit", "branch", "cli", "ai", "conventional-commits"],
   "author": "",
   "license": "ISC",
   "type": "module",
