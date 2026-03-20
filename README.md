@@ -34,6 +34,17 @@ gemit doctor         # verifica configuração
 gemit -v             # versão
 ```
 
+## Atualização automática
+
+Ao executar comandos de uso diário, o `gemit` verifica periodicamente se existe versão nova e tenta atualizar via npm global.
+
+Para desativar:
+
+```bash
+GEMIT_DISABLE_AUTO_UPDATE=1 gemit commit
+$env:GEMIT_DISABLE_AUTO_UPDATE="1"; gemit commit # PowerShell
+```
+
 ## Provedores suportados
 
 - `google`

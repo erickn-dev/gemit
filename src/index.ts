@@ -10,6 +10,7 @@ import { generatePullRequestText } from "./commands/pr.js";
 import { summarizeBranchLog } from "./commands/log.js";
 import { generateChangelog } from "./commands/changelog.js";
 import { doctorConfig, initConfig } from "./commands/config.js";
+import { maybeAutoUpdate } from "./update.js";
 import { failAndExit, style, ui } from "./ui.js";
 
 loadConfig();
@@ -88,14 +89,18 @@ program
   .description("Validate provider, model, and key configuration")
   .action(doctorConfig);
 
-if (process.argv.length <= 2) {
-  generateCommit().catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    failAndExit(message);
-  });
-} else {
-  program.parseAsync(process.argv).catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    failAndExit(message);
-  });
+async function main(): Promise<void> {
+  await maybeAutoUpdate(process.argv);
+
+  if (process.argv.length <= 2) {
+    await generateCommit();
+    return;
+  }
+
+  await program.parseAsync(process.argv);
 }
+
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  failAndExit(message);
+});
