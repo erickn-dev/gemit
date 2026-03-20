@@ -1,6 +1,6 @@
 import { createLLM, extractMessageText } from "../llm.js";
 import { getBranchContext, getCurrentBranch, getGitStatus } from "../git.js";
-import { failAndExit, section, style, ui, withProgress } from "../ui.js";
+import { failAndExit, printKeyValues, section, withProgress } from "../ui.js";
 
 type PrSuggestion = {
   title: string;
@@ -92,8 +92,7 @@ ${branchData}
   const pr = parsePrSuggestion(text);
 
   section("PR TITLE");
-  console.log(style(pr.title, ui.bold));
-  console.log();
+  printKeyValues([{ key: "Title", value: pr.title }]);
 
   section("PR DESCRIPTION");
   console.log(pr.description);

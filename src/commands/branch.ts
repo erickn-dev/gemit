@@ -2,7 +2,7 @@ import { execFileSync } from "child_process";
 import { createLLM, extractMessageText } from "../llm.js";
 import { askConfirmation } from "../prompts.js";
 import { branchExists, getGitStatus } from "../git.js";
-import { failAndExit, section, style, ui, warn, withProgress } from "../ui.js";
+import { failAndExit, printKeyValues, section, warn, withProgress } from "../ui.js";
 
 function sanitizeBranchName(rawName: string): string {
   const normalized = rawName
@@ -63,8 +63,7 @@ export async function suggestBranch(description: string): Promise<void> {
   }
 
   section("SUGGESTED BRANCH");
-  console.log(style(branchName, ui.bold));
-  console.log();
+  printKeyValues([{ key: "Name", value: branchName }]);
 
   const confirmed = await askConfirmation("Create branch with this name? (y/n): ");
   if (!confirmed) {

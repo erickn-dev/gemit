@@ -1,0 +1,50 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\erick\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.11.0
+2 info using node@v24.14.0
+3 silly config load:file:C:\Users\erick\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\erick\projects\gemit\.npmrc
+5 silly config load:file:C:\Users\erick\.npmrc
+6 silly config load:file:C:\Users\erick\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm pack
+8 verbose argv "pack" "--dry-run" "--cache" ".npm-cache-local"
+9 verbose logfile logs-max:10 dir:C:\Users\erick\projects\gemit\.npm-cache-local\_logs\2026-03-20T15_03_02_786Z-
+10 verbose logfile C:\Users\erick\projects\gemit\.npm-cache-local\_logs\2026-03-20T15_03_02_786Z-debug-0.log
+11 silly logfile done cleaning log files
+12 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with EACCES
+13 http fetch GET https://registry.npmjs.org/npm attempt 2 failed with EACCES
+14 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+15 notice
+16 notice package: @ericknovaes56/gemit-cli@1.5.1
+17 notice Tarball Contents
+18 notice 825B README.md
+18 notice 3.0kB dist-secure/cli-version.js
+18 notice 2.4kB dist-secure/commands/add.js
+18 notice 7.5kB dist-secure/commands/branch.js
+18 notice 8.0kB dist-secure/commands/changelog.js
+18 notice 22.2kB dist-secure/commands/commit.js
+18 notice 11.7kB dist-secure/commands/config.js
+18 notice 6.3kB dist-secure/commands/log.js
+18 notice 8.5kB dist-secure/commands/pr.js
+18 notice 6.4kB dist-secure/config.js
+18 notice 17.9kB dist-secure/git.js
+18 notice 8.3kB dist-secure/index.js
+18 notice 5.8kB dist-secure/llm.js
+18 notice 3.3kB dist-secure/prompts.js
+18 notice 5.9kB dist-secure/ui.js
+18 notice 1.2kB package.json
+19 notice Tarball Details
+20 notice name: @ericknovaes56/gemit-cli
+21 notice version: 1.5.1
+22 notice filename: ericknovaes56-gemit-cli-1.5.1.tgz
+23 notice package size: 39.0 kB
+24 notice unpacked size: 119.3 kB
+25 notice shasum: 947732d919161e619dd5a98893fb8eabe9daf812
+26 notice integrity: sha512-wo1D+H8JLjJLR[...]RjvzxyrpDkA5w==
+27 notice total files: 16
+28 notice
+29 verbose cwd C:\Users\erick\projects\gemit
+30 verbose os Windows_NT 10.0.26200
+31 verbose node v24.14.0
+32 verbose npm  v11.11.0
+33 verbose exit 0
+34 info ok

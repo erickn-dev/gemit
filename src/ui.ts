@@ -12,13 +12,19 @@ export function style(text: string, ...codes: string[]): string {
   return `${codes.join("")}${text}${ui.reset}`;
 }
 
+function getDividerWidth(): number {
+  const terminalWidth = process.stdout.columns || 80;
+  return Math.max(40, Math.min(terminalWidth, 100));
+}
+
 export function divider(): void {
-  console.log(style("--------------------------------------------------", ui.dim));
+  console.log(style("-".repeat(getDividerWidth()), ui.dim));
 }
 
 export function section(title: string): void {
+  console.log();
   divider();
-  console.log(style(title, ui.bold, ui.cyan));
+  console.log(style(`[ ${title} ]`, ui.bold, ui.cyan));
   divider();
 }
 
@@ -32,6 +38,38 @@ export function warn(text: string): string {
 
 export function bad(text: string): string {
   return style(text, ui.red, ui.bold);
+}
+
+export function info(text: string): string {
+  return style(text, ui.cyan, ui.bold);
+}
+
+type KeyValueRow = {
+  key: string;
+  value: string;
+};
+
+export function printKeyValues(rows: KeyValueRow[]): void {
+  if (rows.length === 0) {
+    return;
+  }
+
+  const keyWidth = rows.reduce((max, row) => Math.max(max, row.key.length), 0);
+  for (const row of rows) {
+    const key = style(row.key.padEnd(keyWidth), ui.dim);
+    console.log(`  ${key} : ${row.value}`);
+  }
+}
+
+export function printList(title: string, items: string[]): void {
+  console.log(style(title, ui.bold));
+  if (items.length === 0) {
+    console.log(`  ${style("(none)", ui.dim)}`);
+    return;
+  }
+  for (const item of items) {
+    console.log(`  - ${item}`);
+  }
 }
 
 export function failAndExit(message: string): never {

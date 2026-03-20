@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname } from "path";
 import { getGlobalEnvPath } from "../config.js";
 import { askConfirmation, askInput } from "../prompts.js";
-import { failAndExit, section, ok, warn, bad } from "../ui.js";
+import { bad, failAndExit, ok, printKeyValues, section, warn } from "../ui.js";
 
 type Provider = "google" | "openai" | "anthropic";
 
@@ -16,16 +16,12 @@ function getProviderKeyName(provider: Provider): "GOOGLE_API_KEY" | "OPENAI_API_
   return "ANTHROPIC_API_KEY";
 }
 
-export type InitConfigOptions = {
-  local?: boolean;
-};
-
-export async function initConfig(options: InitConfigOptions = {}): Promise<void> {
-  const envPath = options.local ? ".env" : getGlobalEnvPath();
+export async function initConfig(): Promise<void> {
+  const envPath = getGlobalEnvPath();
   if (existsSync(envPath)) {
     const overwrite = await askConfirmation(`${envPath} already exists. Overwrite? (y/n): `);
     if (!overwrite) {
-      console.log("Setup canceled.");
+      console.log(`${warn("CANCELED")} Setup canceled.`);
       return;
     }
   }
@@ -60,7 +56,11 @@ export async function initConfig(options: InitConfigOptions = {}): Promise<void>
 
   mkdirSync(dirname(envPath), { recursive: true });
   writeFileSync(envPath, envContent, "utf8");
-  console.log(`${ok("OK")} Configuration saved to ${envPath}.`);
+  section("CONFIGURATION SAVED");
+  printKeyValues([
+    { key: "Status", value: ok("OK") },
+    { key: "Path", value: envPath },
+  ]);
 }
 
 export function doctorConfig(): void {
@@ -89,17 +89,20 @@ export function doctorConfig(): void {
   const expectedKeyOk = Boolean(expectedKey);
 
   section("DIAGNOSTICS");
-  console.log(`Global .env path ${globalEnvPath}`);
-  console.log(`Global .env      ${globalExists ? ok("found") : warn("missing")}`);
-  console.log(`Local .env       ${localExists ? warn("found (overrides global)") : ok("not found")}`);
+  printKeyValues([
+    { key: "Global .env path", value: globalEnvPath },
+    { key: "Global .env", value: globalExists ? ok("found") : warn("missing") },
+    { key: "Local .env", value: localExists ? warn("found (overrides global)") : ok("not found") },
+  ]);
   console.log();
-  console.log(`LLM_PROVIDER   ${providerOk ? ok("ok") : bad("missing/invalid")}`);
-  console.log(`LLM_MODEL      ${modelOk ? ok("ok") : bad("missing")}`);
-  console.log(`${expectedKeyName.padEnd(14, " ")} ${expectedKeyOk ? ok("ok") : bad("missing")}`);
-  console.log(`GOOGLE_API_KEY ${googleKey ? ok("set") : warn("missing")}`);
-  console.log(`OPENAI_API_KEY ${openAiKey ? ok("set") : warn("missing")}`);
-  console.log(`ANTHROPIC_API_KEY ${anthropicKey ? ok("set") : warn("missing")}`);
-  console.log();
+  printKeyValues([
+    { key: "LLM_PROVIDER", value: providerOk ? ok("ok") : bad("missing/invalid") },
+    { key: "LLM_MODEL", value: modelOk ? ok("ok") : bad("missing") },
+    { key: `Expected (${expectedKeyName})`, value: expectedKeyOk ? ok("ok") : bad("missing") },
+    { key: "GOOGLE_API_KEY", value: googleKey ? ok("set") : warn("missing") },
+    { key: "OPENAI_API_KEY", value: openAiKey ? ok("set") : warn("missing") },
+    { key: "ANTHROPIC_API_KEY", value: anthropicKey ? ok("set") : warn("missing") },
+  ]);
 
   if (!providerOk || !modelOk || !expectedKeyOk) {
     process.exitCode = 1;

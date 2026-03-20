@@ -1,6 +1,6 @@
 import { createLLM, extractMessageText } from "../llm.js";
 import { getBranchContext, getCurrentBranch, getGitStatus } from "../git.js";
-import { failAndExit, section, withProgress } from "../ui.js";
+import { failAndExit, printKeyValues, section, withProgress } from "../ui.js";
 
 function getLLM() {
   try {
@@ -63,6 +63,7 @@ ${branchContext}
   }
 
   section("BRANCH SUMMARY");
+  printKeyValues([{ key: "Branch", value: getCurrentBranch() }]);
   console.log(summary);
   console.log();
 }

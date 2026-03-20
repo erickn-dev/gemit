@@ -2,7 +2,14 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createLLM, extractMessageText } from "../llm.js";
 import { getCommitHistory, getCurrentBranch, getGitStatus } from "../git.js";
-import { failAndExit, ok, section, withProgress } from "../ui.js";
+import { failAndExit, ok, printKeyValues, section, withProgress } from "../ui.js";
+
+const DEFAULT_COMMIT_LIMIT = 20;
+const MAX_COMMIT_LIMIT = 200;
+
+type ChangelogOptions = {
+  commits?: string;
+};
 
 function getLLM() {
   try {
@@ -29,8 +36,22 @@ function formatDateForFile(now: Date): string {
   return now.toISOString().slice(0, 10);
 }
 
-function buildCommitHistoryPrompt(): string {
-  const commits = getCommitHistory(150);
+function resolveCommitLimit(options?: ChangelogOptions): number {
+  const raw = options?.commits?.trim();
+  if (!raw) {
+    return DEFAULT_COMMIT_LIMIT;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    failAndExit("Invalid --commits value. Use a positive integer.");
+  }
+
+  return Math.min(parsed, MAX_COMMIT_LIMIT);
+}
+
+function buildCommitHistoryPrompt(limit: number): string {
+  const commits = getCommitHistory(limit);
 
   if (commits.length === 0) {
     failAndExit("No commits found to generate changelog.");
@@ -46,16 +67,17 @@ function buildCommitHistoryPrompt(): string {
     .join("\n");
 }
 
-export async function generateChangelog(nameArg?: string): Promise<void> {
+export async function generateChangelog(nameArg?: string, options?: ChangelogOptions): Promise<void> {
   getGitStatus();
   const llm = getLLM();
+  const commitLimit = resolveCommitLimit(options);
 
   const branch = getCurrentBranch();
   const baseName = sanitizeName((nameArg || branch).trim());
   const date = formatDateForFile(new Date());
   const fileName = `${baseName}-${date}.md`;
 
-  const commitHistory = buildCommitHistoryPrompt();
+  const commitHistory = buildCommitHistoryPrompt(commitLimit);
 
   const prompt = `
 Crie um CHANGELOG em markdown com base no historico de commits abaixo.
@@ -65,7 +87,7 @@ Regras:
 - Inclua uma secao "Commits" com lista curta de hashes e assuntos
 - Nao invente mudancas
 
-Historico de commits:
+Historico recente de commits (ultimos ${commitLimit} commits):
 ${commitHistory}
 `.trim();
 
@@ -83,6 +105,9 @@ ${commitHistory}
   writeFileSync(outputPath, `${changelog.trim()}\n`, "utf8");
 
   section("CHANGELOG GENERATED");
-  console.log(`${ok("OK")} File saved: ${outputPath}`);
-  console.log();
+  printKeyValues([
+    { key: "Status", value: ok("OK") },
+    { key: "File", value: outputPath },
+    { key: "Commits used", value: String(commitLimit) },
+  ]);
 }

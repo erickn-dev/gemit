@@ -9,7 +9,7 @@ import { suggestBranch } from "./commands/branch.js";
 import { generatePullRequestText } from "./commands/pr.js";
 import { summarizeBranchLog } from "./commands/log.js";
 import { generateChangelog } from "./commands/changelog.js";
-import { doctorConfig, initConfig, type InitConfigOptions } from "./commands/config.js";
+import { doctorConfig, initConfig } from "./commands/config.js";
 import { failAndExit, style, ui } from "./ui.js";
 
 loadConfig();
@@ -75,13 +75,13 @@ program
   .command("changelog")
   .description("Generate a changelog file from commit history")
   .argument("[name]", "Base file name (default: current branch name)")
-  .action(generateChangelog);
+  .option("-c, --commits <number>", "Number of recent commits to include (default: 20)")
+  .action((name: string | undefined, options: { commits?: string }) => generateChangelog(name, options));
 
 program
   .command("init")
-  .description("Configure provider, model, and API key (global by default)")
-  .option("--local", "Write configuration to local .env in current project")
-  .action((options: InitConfigOptions) => initConfig(options));
+  .description("Configure provider, model, and API key (global)")
+  .action(initConfig);
 
 program
   .command("doctor")

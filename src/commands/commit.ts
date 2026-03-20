@@ -10,7 +10,7 @@ import {
   stageAll,
   type StagedContext,
 } from "../git.js";
-import { failAndExit, ok, section, style, warn, ui, withProgress } from "../ui.js";
+import { failAndExit, info, ok, printKeyValues, printList, section, warn, withProgress } from "../ui.js";
 
 type CommitOptions = {
   all?: boolean;
@@ -102,7 +102,7 @@ function runOptionalChecks(): void {
   ];
 
   for (const check of checks) {
-    console.log(`${style("CHECK", ui.bold, ui.cyan)} Running ${check.label}...`);
+    console.log(`${info("CHECK")} Running ${check.label}...`);
     try {
       execFileSync(npmCmd, check.args, { stdio: "inherit" });
       console.log(`${ok("OK")} ${check.label} completed.`);
@@ -178,21 +178,24 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
     );
   }
 
-  console.log("Staged files:");
-  console.log(formatStagedFiles(staged));
-  console.log();
+  printList(
+    "Staged files",
+    staged.files.map((file) => `${file.status} ${file.path}`)
+  );
 
   if (options.check) {
-    runOptionalChecks();
     console.log();
+    runOptionalChecks();
   }
 
   section("2. SUMMARIZE");
   const summary = summarizeChanges(staged);
   const detectedType = detectCommitType(staged);
-  console.log(summary);
-  console.log(`Detected type: ${style(detectedType, ui.bold)}`);
-  console.log();
+  printKeyValues([
+    { key: "Summary", value: summary },
+    { key: "Detected type", value: detectedType },
+    { key: "Diff stat", value: staged.diffStat || "(none)" },
+  ]);
 
   if (staged.metrics.patchChars > WARN_PROMPT_DIFF_CHARS) {
     console.log(
@@ -229,16 +232,14 @@ ${staged.patch || "(none)"}
     failAndExit("Failed to generate commit message.");
   }
 
-  console.log("Suggested commit:");
-  console.log(style(suggestedMessage, ui.bold));
-  console.log();
+  printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
 
   section("4. CONFIRM");
   const finalMessage = await askEditableInput(
     "Edit commit message (press Enter to keep suggestion): ",
     suggestedMessage
   );
-  console.log(`Final commit: ${style(finalMessage, ui.bold)}`);
+  printKeyValues([{ key: "Final commit", value: finalMessage }]);
   const confirmed = await askConfirmation("Commit using this message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
     console.log(`${warn("CANCELED")} Commit was not created.`);
