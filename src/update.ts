@@ -29,16 +29,16 @@ export async function maybeAutoUpdate(argv: string[], force = false): Promise<vo
     return;
   }
 
-  if (!force) {
-    writeCache({ lastCheckedAt: now });
-  }
-
   const latest = await fetchLatestVersion();
   if (!latest) {
     if (force) {
       console.log(bad("UPDATE", "Failed to fetch the latest version. Check your connection."));
     }
     return;
+  }
+
+  if (!force) {
+    writeCache({ lastCheckedAt: now });
   }
 
   const current = getCliVersion();

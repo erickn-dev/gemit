@@ -1,6 +1,6 @@
 import { execFileSync } from "child_process";
 import { createLLM, extractMessageText } from "../llm.js";
-import { askConfirmation, askEditableInput } from "../prompts.js";
+import { askConfirmation } from "../prompts.js";
 import {
   getCurrentBranch,
   getDefaultRemote,
@@ -188,14 +188,8 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
     runOptionalChecks();
   }
 
-  section("2. SUMMARIZE");
   const summary = summarizeChanges(staged);
   const detectedType = detectCommitType(staged);
-  printKeyValues([
-    { key: "Summary", value: summary },
-    { key: "Detected type", value: detectedType },
-    { key: "Diff stat", value: staged.diffStat || "(none)" },
-  ]);
 
   if (staged.metrics.patchChars > WARN_PROMPT_DIFF_CHARS) {
     console.log(
@@ -235,12 +229,9 @@ ${staged.patch || "(none)"}
   printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
 
   section("4. CONFIRM");
-  const finalMessage = await askEditableInput(
-    "Edit commit message (press Enter to keep suggestion): ",
-    suggestedMessage
-  );
+  const finalMessage = suggestedMessage;
   printKeyValues([{ key: "Final commit", value: finalMessage }]);
-  const confirmed = await askConfirmation("Commit using this message? (Y/n): ", { defaultYes: true });
+  const confirmed = await askConfirmation("Commit using AI message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
     console.log(warn("CANCELED", "Commit was not created."));
     return;
