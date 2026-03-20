@@ -21,7 +21,7 @@ export async function initConfig(): Promise<void> {
   if (existsSync(envPath)) {
     const overwrite = await askConfirmation(`${envPath} already exists. Overwrite? (y/n): `);
     if (!overwrite) {
-      console.log(`${warn("CANCELED")} Setup canceled.`);
+      console.log(warn("CANCELED", "Setup canceled."));
       return;
     }
   }

@@ -41,12 +41,16 @@ export async function maybeAutoUpdate(argv: string[]): Promise<void> {
     return;
   }
 
-  console.log(`${warn("UPDATE")} New version detected (${current} -> ${latest}). Updating gemit...`);
-  const updated = await runGlobalUpdate();
-  if (updated) {
-    console.log(`${ok("UPDATED")} gemit is now on ${latest}.`);
+  console.log(warn("UPDATE", `New version detected (${current} -> ${latest}).`));
+  const result = await runGlobalUpdate();
+
+  if (result === "detached") {
+    console.log(ok("UPDATE STARTED", "A new terminal window was opened to perform the update."));
+    console.log(warn("WAIT", "Please wait for the update to finish before running gemit again."));
+  } else if (result) {
+    console.log(ok("UPDATED", `gemit is now on ${latest}.`));
   } else {
-    console.log(`${bad("UPDATE FAILED")} Run manually: npm i -g ${PACKAGE_NAME}@latest`);
+    console.log(bad("UPDATE FAILED", `Run manually: npm i -g ${PACKAGE_NAME}@latest`));
   }
 }
 
@@ -88,11 +92,29 @@ async function fetchLatestVersion(): Promise<string | null> {
   }
 }
 
-async function runGlobalUpdate(): Promise<boolean> {
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+async function runGlobalUpdate(): Promise<boolean | "detached"> {
+  if (process.platform === "win32") {
+    try {
+      const npmCommand = "npm.cmd";
+      // Use 'start' to open a new terminal window.
+      // We use 'cmd /c' to run npm and then pause so the user can see the result.
+      const command = `${npmCommand} install -g ${PACKAGE_NAME}@latest`;
+      const fullCommand = `${command} & echo. & echo [Update Finished] & pause`;
+
+      spawn("cmd.exe", ["/c", "start", "cmd.exe", "/c", fullCommand], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+
+      return "detached";
+    } catch {
+      return false;
+    }
+  }
+
   return new Promise<boolean>((resolve) => {
     try {
-      const child = spawn(npmCommand, ["install", "-g", `${PACKAGE_NAME}@latest`], {
+      const child = spawn("npm", ["install", "-g", `${PACKAGE_NAME}@latest`], {
         stdio: "ignore",
       });
 

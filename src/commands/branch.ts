@@ -67,7 +67,7 @@ export async function suggestBranch(description: string): Promise<void> {
 
   const confirmed = await askConfirmation("Create branch with this name? (y/n): ");
   if (!confirmed) {
-    console.log(`${warn("CANCELED")} Branch was not created.`);
+    console.log(warn("CANCELED", "Branch was not created."));
     return;
   }
 

@@ -102,10 +102,10 @@ function runOptionalChecks(): void {
   ];
 
   for (const check of checks) {
-    console.log(`${info("CHECK")} Running ${check.label}...`);
+    console.log(info("CHECK", `Running ${check.label}...`));
     try {
       execFileSync(npmCmd, check.args, { stdio: "inherit" });
-      console.log(`${ok("OK")} ${check.label} completed.`);
+      console.log(ok("OK", `${check.label} completed.`));
     } catch {
       failAndExit(`${check.label} failed. Aborting commit.`);
     }
@@ -128,7 +128,7 @@ async function maybePushCurrentBranch(): Promise<void> {
       execFileSync("git", ["push", upstream.remote, `${currentBranch}:${upstream.branch}`], {
         stdio: "inherit",
       });
-      console.log(`${ok("OK")} Push completed to ${upstream.fullName}.`);
+      console.log(ok("OK", `Push completed to ${upstream.fullName}.`));
     } catch {
       failAndExit(`Failed to push to ${upstream.fullName}.`);
     }
@@ -137,7 +137,7 @@ async function maybePushCurrentBranch(): Promise<void> {
 
   const remote = getDefaultRemote();
   if (!remote) {
-    console.log(`${warn("SKIPPED")} No git remote configured. Push not available.`);
+    console.log(warn("SKIPPED", "No git remote configured. Push not available."));
     return;
   }
 
@@ -150,7 +150,7 @@ async function maybePushCurrentBranch(): Promise<void> {
 
   try {
     execFileSync("git", ["push", "--set-upstream", remote, currentBranch], { stdio: "inherit" });
-    console.log(`${ok("OK")} Push completed and upstream configured (${remote}/${currentBranch}).`);
+    console.log(ok("OK", `Push completed and upstream configured (${remote}/${currentBranch}).`));
   } catch {
     failAndExit(`Failed to push "${currentBranch}" to "${remote}".`);
   }
@@ -164,7 +164,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
   section("1. STAGE");
   if (options.all) {
     stageAll();
-    console.log(`${ok("OK")} Staged all changes (git add .).`);
+    console.log(ok("OK", "Staged all changes (git add .)."));
   }
 
   const staged = getStagedContext(MAX_PROMPT_PATCH_CHARS);
@@ -174,7 +174,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
 
   if (staged.metrics.fileCount >= WARN_SPLIT_FILE_COUNT) {
     console.log(
-      `${warn("TIP")} ${staged.metrics.fileCount} staged files detected. Consider splitting into multiple commits.`
+      warn("TIP", `${staged.metrics.fileCount} staged files detected. Consider splitting into multiple commits.`)
     );
   }
 
@@ -199,7 +199,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
 
   if (staged.metrics.patchChars > WARN_PROMPT_DIFF_CHARS) {
     console.log(
-      `${warn("WARNING")} Large staged diff (${staged.metrics.patchChars} chars). Prompt will include a truncated patch excerpt.`
+      warn("WARNING", `Large staged diff (${staged.metrics.patchChars} chars). Prompt will include a truncated patch excerpt.`)
     );
   }
 
@@ -242,7 +242,7 @@ ${staged.patch || "(none)"}
   printKeyValues([{ key: "Final commit", value: finalMessage }]);
   const confirmed = await askConfirmation("Commit using this message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
-    console.log(`${warn("CANCELED")} Commit was not created.`);
+    console.log(warn("CANCELED", "Commit was not created."));
     return;
   }
 
