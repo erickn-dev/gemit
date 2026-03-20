@@ -31,6 +31,7 @@ gemit log            # resume o trabalho do branch
 gemit changelog      # gera changelog em changelogs/nome-data.md
 gemit changelog -c 10 # usa apenas os 10 commits mais recentes
 gemit doctor         # verifica configuração
+gemit update         # força a checagem/instalação da versão mais recente
 gemit -v             # versão
 ```
 

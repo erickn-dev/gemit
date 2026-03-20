@@ -39,6 +39,7 @@ export function section(title: string): void {
   // Keep section headers unstyled to avoid terminal/theme hyperlink-like rendering.
   console.log(`  ${title}  `);
   console.log();
+  console.log();
 }
 
 export function ok(label: string, message?: string): string {

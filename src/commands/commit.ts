@@ -227,10 +227,7 @@ ${staged.patch || "(none)"}
   }
 
   printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
-
-  section("4. CONFIRM");
   const finalMessage = suggestedMessage;
-  printKeyValues([{ key: "Final commit", value: finalMessage }]);
   const confirmed = await askConfirmation("Commit using AI message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
     console.log(warn("CANCELED", "Commit was not created."));
