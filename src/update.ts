@@ -14,30 +14,38 @@ type UpdateCache = {
   lastCheckedAt?: number;
 };
 
-export async function maybeAutoUpdate(argv: string[]): Promise<void> {
-  if (process.env.GEMIT_DISABLE_AUTO_UPDATE === "1") {
+export async function maybeAutoUpdate(argv: string[], force = false): Promise<void> {
+  if (process.env.GEMIT_DISABLE_AUTO_UPDATE === "1" && !force) {
     return;
   }
 
-  if (!shouldCheckForUpdates(argv)) {
+  if (!shouldCheckForUpdates(argv) && !force) {
     return;
   }
 
   const cache = readCache();
   const now = Date.now();
-  if (cache.lastCheckedAt && now - cache.lastCheckedAt < CHECK_INTERVAL_MS) {
+  if (!force && cache.lastCheckedAt && now - cache.lastCheckedAt < CHECK_INTERVAL_MS) {
     return;
   }
 
-  writeCache({ lastCheckedAt: now });
+  if (!force) {
+    writeCache({ lastCheckedAt: now });
+  }
 
   const latest = await fetchLatestVersion();
   if (!latest) {
+    if (force) {
+      console.log(bad("UPDATE", "Failed to fetch the latest version. Check your connection."));
+    }
     return;
   }
 
   const current = getCliVersion();
   if (!isVersionLower(current, latest)) {
+    if (force) {
+      console.log(ok("UPDATE", `gemit is up to date (${current}).`));
+    }
     return;
   }
 

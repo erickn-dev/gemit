@@ -36,6 +36,7 @@ Examples:
   gemit changelog
   gemit init
   gemit doctor
+  gemit update
 `
 );
 
@@ -89,8 +90,19 @@ program
   .description("Validate provider, model, and key configuration")
   .action(doctorConfig);
 
+program
+  .command("update")
+  .description("Force a check for updates and install if a new version is available")
+  .action(async () => {
+    await maybeAutoUpdate(process.argv, true);
+  });
+
 async function main(): Promise<void> {
-  await maybeAutoUpdate(process.argv);
+  const isUpdateCommand = process.argv.some((arg) => arg === "update");
+
+  if (!isUpdateCommand) {
+    await maybeAutoUpdate(process.argv);
+  }
 
   if (process.argv.length <= 2) {
     await generateCommit();

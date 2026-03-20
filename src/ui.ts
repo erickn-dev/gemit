@@ -5,6 +5,7 @@ export const ui = {
   italic: "\x1b[3m",
   underline: "\x1b[4m",
   cyan: "\x1b[36m",
+  white: "\x1b[37m",
   green: "\x1b[32m",
   yellow: "\x1b[33m",
   red: "\x1b[31m",
@@ -35,7 +36,8 @@ export function divider(): void {
 
 export function section(title: string): void {
   console.log();
-  console.log(style(`  ${title}  `, ui.bold, ui.magenta, ui.underline));
+  // Keep section headers unstyled to avoid terminal/theme hyperlink-like rendering.
+  console.log(`  ${title}  `);
   console.log();
 }
 
@@ -77,13 +79,13 @@ export function printKeyValues(rows: KeyValueRow[]): void {
 }
 
 export function printList(title: string, items: string[]): void {
-  console.log(style(title, ui.bold, ui.cyan));
+  console.log(style(title, ui.bold, ui.white));
   if (items.length === 0) {
     console.log(`  ${style("(none)", ui.gray, ui.italic)}`);
     return;
   }
   for (const item of items) {
-    console.log(`  ${style(symbols.arrow, ui.magenta)} ${item}`);
+    console.log(`  ${style(symbols.arrow, ui.cyan)} ${item}`);
   }
 }
 
@@ -105,7 +107,7 @@ export async function withProgress<T>(message: string, work: () => Promise<T>): 
 
   const render = () => {
     const frame = frames[frameIndex % frames.length];
-    process.stdout.write(`\r${style(frame, ui.magenta)} ${style(message, ui.gray)}`);
+    process.stdout.write(`\r${style(frame, ui.cyan)} ${style(message, ui.gray)}`);
     frameIndex += 1;
   };
 

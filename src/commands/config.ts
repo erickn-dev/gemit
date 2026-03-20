@@ -65,8 +65,6 @@ export async function initConfig(): Promise<void> {
 
 export function doctorConfig(): void {
   const globalEnvPath = getGlobalEnvPath();
-  const localEnvPath = ".env";
-  const localExists = existsSync(localEnvPath);
   const globalExists = existsSync(globalEnvPath);
   const provider = (process.env.LLM_PROVIDER || "").toLowerCase();
   const model = process.env.LLM_MODEL || "";
@@ -92,7 +90,6 @@ export function doctorConfig(): void {
   printKeyValues([
     { key: "Global .env path", value: globalEnvPath },
     { key: "Global .env", value: globalExists ? ok("found") : warn("missing") },
-    { key: "Local .env", value: localExists ? warn("found (overrides global)") : ok("not found") },
   ]);
   console.log();
   printKeyValues([
