@@ -14,52 +14,61 @@ export const ui = {
 };
 
 export const symbols = {
-  tick: "✔",
+  tick: "✓",
   warn: "⚠",
-  cross: "✖",
-  info: "ℹ",
-  arrow: "›",
+  cross: "✗",
+  bullet: "●",
+  dot: "·",
+  arrow: "→",
+  treeItem: "├─",
+  treeLast: "└─",
+  treePipe: "│",
+  h: "─",
+  v: "│",
+  tl: "╭",
+  tr: "╮",
+  bl: "╰",
+  br: "╯",
 };
 
 export function style(text: string, ...codes: string[]): string {
   return `${codes.join("")}${text}${ui.reset}`;
 }
 
-function getDividerWidth(): number {
-  const terminalWidth = process.stdout.columns || 80;
-  return Math.max(40, Math.min(terminalWidth, 80));
+function termWidth(): number {
+  return Math.max(40, Math.min(process.stdout.columns || 80, 88));
 }
 
-export function divider(): void {
-  console.log(style("─".repeat(getDividerWidth()), ui.gray));
-}
-
+// ╭─ TITLE ──────────────────────────
 export function section(title: string): void {
+  const label = ` ${title} `;
+  const fill = symbols.h.repeat(Math.max(0, termWidth() - label.length - 2));
   console.log();
-  // Keep section headers unstyled to avoid terminal/theme hyperlink-like rendering.
-  console.log(`  ${title}  `);
-  console.log();
-  console.log();
+  console.log(
+    style(symbols.tl + symbols.h, ui.gray) +
+    style(label, ui.bold) +
+    style(fill, ui.gray)
+  );
 }
 
 export function ok(label: string, message?: string): string {
-  const prefix = `${style(symbols.tick, ui.green, ui.bold)} ${style(label, ui.green, ui.bold)}`;
-  return message ? `${prefix} ${style(message, ui.gray)}` : prefix;
+  const prefix = `${style(symbols.tick, ui.green)} ${style(label, ui.green, ui.bold)}`;
+  return message ? `${prefix}  ${style(message, ui.gray)}` : prefix;
 }
 
 export function warn(label: string, message?: string): string {
   const prefix = `${style(symbols.warn, ui.yellow, ui.bold)} ${style(label, ui.yellow, ui.bold)}`;
-  return message ? `${prefix} ${style(message, ui.gray)}` : prefix;
+  return message ? `${prefix}  ${style(message, ui.gray)}` : prefix;
 }
 
 export function bad(label: string, message?: string): string {
   const prefix = `${style(symbols.cross, ui.red, ui.bold)} ${style(label, ui.red, ui.bold)}`;
-  return message ? `${prefix} ${style(message, ui.gray)}` : prefix;
+  return message ? `${prefix}  ${style(message, ui.gray)}` : prefix;
 }
 
 export function info(label: string, message?: string): string {
-  const prefix = `${style(symbols.info, ui.cyan, ui.bold)} ${style(label, ui.cyan, ui.bold)}`;
-  return message ? `${prefix} ${style(message, ui.gray)}` : prefix;
+  const prefix = `${style(symbols.bullet, ui.cyan)} ${style(label, ui.cyan, ui.bold)}`;
+  return message ? `${prefix}  ${style(message, ui.gray)}` : prefix;
 }
 
 type KeyValueRow = {
@@ -67,32 +76,59 @@ type KeyValueRow = {
   value: string;
 };
 
+//   ├─ key    value
+//   └─ key    value  (last)
 export function printKeyValues(rows: KeyValueRow[]): void {
-  if (rows.length === 0) {
-    return;
-  }
+  if (rows.length === 0) return;
 
   const keyWidth = rows.reduce((max, row) => Math.max(max, row.key.length), 0);
-  for (const row of rows) {
-    const key = style(row.key.padEnd(keyWidth), ui.gray, ui.italic);
-    console.log(`  ${key} ${style(symbols.arrow, ui.gray)} ${style(row.value, ui.bold)}`);
+
+  for (let i = 0; i < rows.length; i++) {
+    const isLast = i === rows.length - 1;
+    const connector = style(isLast ? symbols.treeLast : symbols.treeItem, ui.gray);
+    const key = style(rows[i].key.padEnd(keyWidth), ui.gray, ui.italic);
+    console.log(`  ${connector} ${key}  ${rows[i].value}`);
   }
 }
 
+//   Title
+//   ├─ item
+//   └─ item  (last)
 export function printList(title: string, items: string[]): void {
-  console.log(style(title, ui.bold, ui.white));
+  console.log(`  ${style(title, ui.bold)}`);
+
   if (items.length === 0) {
-    console.log(`  ${style("(none)", ui.gray, ui.italic)}`);
+    console.log(`  ${style(symbols.treeLast, ui.gray)} ${style("(none)", ui.gray, ui.italic)}`);
     return;
   }
-  for (const item of items) {
-    console.log(`  ${style(symbols.arrow, ui.cyan)} ${item}`);
+
+  for (let i = 0; i < items.length; i++) {
+    const isLast = i === items.length - 1;
+    const connector = style(isLast ? symbols.treeLast : symbols.treeItem, ui.gray);
+    console.log(`  ${connector} ${style(items[i], ui.dim)}`);
   }
 }
 
+// ╭─ Error ────────────────────────────
+// │  ✗ message
+// ╰────────────────────────────────────
 export function failAndExit(message: string): never {
+  const width = termWidth();
+  const topLabel = ` Error `;
+  const topFill = symbols.h.repeat(Math.max(0, width - topLabel.length - 2));
+  const botFill = symbols.h.repeat(Math.max(0, width - 2));
+
   console.error();
-  console.error(bad(message));
+  console.error(
+    style(symbols.tl + symbols.h, ui.red) +
+    style(topLabel, ui.red, ui.bold) +
+    style(topFill, ui.red)
+  );
+  console.error(
+    style(symbols.v + " ", ui.red) +
+    ` ${style(symbols.cross, ui.red, ui.bold)} ${message}`
+  );
+  console.error(style(symbols.bl + botFill + symbols.br, ui.red));
   console.error();
   process.exit(1);
 }
@@ -107,8 +143,8 @@ export async function withProgress<T>(message: string, work: () => Promise<T>): 
   let frameIndex = 0;
 
   const render = () => {
-    const frame = frames[frameIndex % frames.length];
-    process.stdout.write(`\r${style(frame, ui.cyan)} ${style(message, ui.gray)}`);
+    const frame = style(frames[frameIndex % frames.length], ui.cyan);
+    process.stdout.write(`\r  ${frame}  ${style(message, ui.dim)}`);
     frameIndex += 1;
   };
 
@@ -119,12 +155,12 @@ export async function withProgress<T>(message: string, work: () => Promise<T>): 
     const result = await work();
     clearInterval(timer);
     process.stdout.write("\r\x1b[2K");
-    console.log(ok(message));
+    console.log(`  ${ok(message)}`);
     return result;
   } catch (error) {
     clearInterval(timer);
     process.stdout.write("\r\x1b[2K");
-    console.log(bad(message));
+    console.log(`  ${bad(message)}`);
     throw error;
   }
 }

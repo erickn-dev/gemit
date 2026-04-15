@@ -1,4 +1,5 @@
 import { execFileSync } from "child_process";
+import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
 import { askConfirmation } from "../prompts.js";
 import { branchExists, getGitStatus } from "../git.js";
@@ -38,17 +39,8 @@ export async function suggestBranch(description: string): Promise<void> {
   getGitStatus();
   const llm = getLLM();
 
-  const prompt = `
-    Generate a git branch name for the feature described below.
-    Rules:
-    - Format: <type>/<kebab-case-description>
-    - Allowed types: feat, fix, chore, docs, refactor, test
-    - Maximum length: 50 characters
-    - Return ONLY the branch name in English
-
-    Description:
-    ${description}
-  `;
+  const template = loadPrompt("branch");
+  const prompt = interpolate(template, { description });
 
   const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
   const rawBranch = extractMessageText(result.content);

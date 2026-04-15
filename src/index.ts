@@ -10,6 +10,7 @@ import { generatePullRequestText } from "./commands/pr.js";
 import { summarizeBranchLog } from "./commands/log.js";
 import { generateChangelog } from "./commands/changelog.js";
 import { doctorConfig, initConfig } from "./commands/config.js";
+import { editPrompt, initPrompts, showPromptContent, showPrompts } from "./commands/prompts.js";
 import { maybeAutoUpdate } from "./update.js";
 import { failAndExit, style, ui } from "./ui.js";
 
@@ -37,6 +38,10 @@ Examples:
   gemit init
   gemit doctor
   gemit update
+  gemit prompts
+  gemit prompts --init
+  gemit prompts --edit commit
+  gemit prompts --show commit
 `
 );
 
@@ -95,6 +100,24 @@ program
   .description("Force a check for updates and install if a new version is available")
   .action(async () => {
     await maybeAutoUpdate(process.argv, true);
+  });
+
+program
+  .command("prompts")
+  .description("Manage AI prompt templates (list, export, customize)")
+  .option("--init", "Export built-in prompts to the global config directory and open it")
+  .option("--edit <name>", "Open a specific prompt file in your default editor (commit|branch|pr|changelog|log)")
+  .option("--show <name>", "Print the built-in template for a specific prompt (commit|branch|pr|changelog|log)")
+  .action((options: { init?: boolean; edit?: string; show?: string }) => {
+    if (options.init) {
+      initPrompts();
+    } else if (options.edit) {
+      editPrompt(options.edit);
+    } else if (options.show) {
+      showPromptContent(options.show);
+    } else {
+      showPrompts();
+    }
   });
 
 async function main(): Promise<void> {

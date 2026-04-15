@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
 import { getCommitHistory, getCurrentBranch, getGitStatus } from "../git.js";
 import { failAndExit, ok, printKeyValues, section, withProgress } from "../ui.js";
@@ -79,17 +80,11 @@ export async function generateChangelog(nameArg?: string, options?: ChangelogOpt
 
   const commitHistory = buildCommitHistoryPrompt(commitLimit);
 
-  const prompt = `
-Crie um CHANGELOG em markdown com base no historico de commits abaixo.
-Regras:
-- Responda em portugues do Brasil
-- Estrutura: titulo, resumo curto e secoes por tipo de mudanca (Features, Fixes, Refactors, Docs, Chore)
-- Inclua uma secao "Commits" com lista curta de hashes e assuntos
-- Nao invente mudancas
-
-Historico recente de commits (ultimos ${commitLimit} commits):
-${commitHistory}
-`.trim();
+  const template = loadPrompt("changelog");
+  const prompt = interpolate(template, {
+    commit_limit: String(commitLimit),
+    commit_history: commitHistory,
+  });
 
   const response = await withProgress("AI is generating changelog...", () => llm.invoke(prompt));
   const changelog = extractMessageText(response.content);

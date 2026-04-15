@@ -1,3 +1,4 @@
+import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
 import { getBranchContext, getCurrentBranch, getGitStatus } from "../git.js";
 import { failAndExit, printKeyValues, section, withProgress } from "../ui.js";
@@ -43,17 +44,8 @@ export async function summarizeBranchLog(): Promise<void> {
   const llm = getLLM();
   const branchContext = formatBranchContextForPrompt();
 
-  const prompt = `
-Resuma em portugues do Brasil o que foi feito neste branch.
-Regras:
-- Use linguagem natural e objetiva
-- 1 paragrafo curto + lista com bullets das principais mudancas
-- Cite impacto tecnico quando possivel
-- Nao invente nada fora do contexto fornecido
-
-Contexto do branch:
-${branchContext}
-`.trim();
+  const template = loadPrompt("log");
+  const prompt = interpolate(template, { branch_context: branchContext });
 
   const response = await withProgress("AI is summarizing branch work...", () => llm.invoke(prompt));
   const summary = extractMessageText(response.content);

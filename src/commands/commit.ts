@@ -1,4 +1,5 @@
 import { execFileSync } from "child_process";
+import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
 import { askConfirmation } from "../prompts.js";
 import {
@@ -197,26 +198,14 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
     );
   }
 
-  const prompt = `
-Write one Conventional Commit message in English based on the staged changes.
-Rules:
-- Start with this likely type unless evidence strongly suggests another one: ${detectedType}
-- Use format: <type>(optional-scope): <subject>
-- Keep subject concise and specific
-- Return ONLY the commit message, without code fences or explanations
-
-Staged files:
-${formatStagedFiles(staged)}
-
-Short summary:
-${summary}
-
-Diff stat:
-${staged.diffStat || "(none)"}
-
-Patch excerpt${staged.metrics.truncated ? " (truncated)" : ""}:
-${staged.patch || "(none)"}
-  `;
+  const template = loadPrompt("commit");
+  const prompt = interpolate(template, {
+    detected_type: detectedType,
+    staged_files: formatStagedFiles(staged),
+    summary,
+    diff_stat: staged.diffStat || "(none)",
+    patch: `${staged.patch || "(none)"}${staged.metrics.truncated ? "\n(truncated)" : ""}`,
+  });
 
   section("3. SUGGEST");
   const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
@@ -228,6 +217,7 @@ ${staged.patch || "(none)"}
 
   printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
   const finalMessage = suggestedMessage;
+  console.log()
   const confirmed = await askConfirmation("Commit using AI message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
     console.log(warn("CANCELED", "Commit was not created."));

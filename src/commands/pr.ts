@@ -1,3 +1,4 @@
+import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
 import { getBranchContext, getCurrentBranch, getGitStatus } from "../git.js";
 import { failAndExit, printKeyValues, section, withProgress } from "../ui.js";
@@ -67,20 +68,8 @@ export async function generatePullRequestText(): Promise<void> {
   const llm = getLLM();
   const branchData = formatCommitsForPrompt();
 
-  const prompt = `
-You are generating content for a GitHub Pull Request.
-Based on the branch data below, create:
-- A concise PR title in English (max 72 chars)
-- A clear markdown description with sections: Summary, Changes, Testing
-
-Return exactly in this format:
-TITLE: <title>
-DESCRIPTION:
-<markdown>
-
-Branch data:
-${branchData}
-`.trim();
+  const template = loadPrompt("pr");
+  const prompt = interpolate(template, { branch_data: branchData });
 
   const response = await withProgress("AI is preparing PR title and description...", () => llm.invoke(prompt));
   const text = extractMessageText(response.content);
