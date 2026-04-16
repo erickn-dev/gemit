@@ -1,6 +1,6 @@
 {
   "name": "gemit-cli",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "CLI para sugerir commit/branch com IA, com config global e fluxo opcional de push",
   "main": "dist-secure/index.js",
   "bin": {
