@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { interpolate, loadPrompt } from "../aiPrompts.js";
 import { createLLM, extractMessageText } from "../llm.js";
-import { getCommitHistory, getCurrentBranch, getGitStatus } from "../git.js";
+import { getCommitHistory, getCommitRangeDiffStat, getCurrentBranch, getGitStatus } from "../git.js";
 import { failAndExit, ok, printKeyValues, section, withProgress } from "../ui.js";
 
 const DEFAULT_COMMIT_LIMIT = 20;
@@ -55,10 +55,10 @@ function buildCommitHistoryPrompt(limit: number): string {
   const commits = getCommitHistory(limit);
 
   if (commits.length === 0) {
-    failAndExit("No commits found to generate changelog.");
+    failAndExit("No commits found to generate changelog.", "Make at least one commit in this repository first.");
   }
 
-  return commits
+  const commitLines = commits
     .map((commit) => {
       const body = commit.body ? ` | body: ${commit.body.replace(/\s+/g, " ").trim()}` : "";
       const date = commit.date || "unknown-date";
@@ -66,6 +66,10 @@ function buildCommitHistoryPrompt(limit: number): string {
       return `- ${date} | ${commit.hash.slice(0, 7)} | ${author} | ${commit.subject}${body}`;
     })
     .join("\n");
+
+  const diffStat = getCommitRangeDiffStat(limit);
+
+  return [commitLines, "", "Overall diff stat:", diffStat].join("\n");
 }
 
 export async function generateChangelog(nameArg?: string, options?: ChangelogOptions): Promise<void> {
@@ -90,7 +94,7 @@ export async function generateChangelog(nameArg?: string, options?: ChangelogOpt
   const changelog = extractMessageText(response.content);
 
   if (!changelog) {
-    failAndExit("Failed to generate changelog content.");
+    failAndExit("Failed to generate changelog content.", "Check your API key and network connection, then try again.");
   }
 
   const outputDir = join(process.cwd(), "changelogs");

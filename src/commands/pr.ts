@@ -21,13 +21,17 @@ function formatCommitsForPrompt(): string {
   const context = getBranchContext();
 
   if (context.commits.length === 0) {
-    failAndExit(`No commits found on current branch against ${context.baseRef}.`);
+    failAndExit(`No commits found on current branch against ${context.baseRef}.`, "Make at least one commit before generating a PR description.");
   }
 
   const commitLines = context.commits.map((commit) => {
     const bodyLine = commit.body ? ` | body: ${commit.body.replace(/\s+/g, " ").trim()}` : "";
     return `- ${commit.hash.slice(0, 7)} | ${commit.subject}${bodyLine}`;
   });
+
+  const patchBlock = context.patch
+    ? `${context.patch}${context.patchTruncated ? "\n(truncated)" : ""}`
+    : "(none)";
 
   return [
     `Current branch: ${getCurrentBranch()}`,
@@ -41,6 +45,9 @@ function formatCommitsForPrompt(): string {
     "",
     "Diff stat:",
     context.diffStat || "(none)",
+    "",
+    "Code diff:",
+    patchBlock,
   ].join("\n");
 }
 
@@ -50,7 +57,7 @@ function parsePrSuggestion(raw: string): PrSuggestion {
   const descriptionIndex = lines.findIndex((line) => line.toLowerCase().startsWith("description:"));
 
   if (!titleLine || descriptionIndex < 0) {
-    failAndExit("Failed to parse PR suggestion from AI response.");
+    failAndExit("Failed to parse PR suggestion from AI response.", "The AI returned an unexpected format. Try running the command again.");
   }
 
   const title = titleLine.slice(titleLine.indexOf(":") + 1).trim();
@@ -75,7 +82,7 @@ export async function generatePullRequestText(): Promise<void> {
   const text = extractMessageText(response.content);
 
   if (!text) {
-    failAndExit("Failed to generate PR content.");
+    failAndExit("Failed to generate PR content.", "Check your API key and network connection, then try again.");
   }
 
   const pr = parsePrSuggestion(text);

@@ -11,7 +11,7 @@ import {
   stageAll,
   type StagedContext,
 } from "../git.js";
-import { failAndExit, info, ok, printKeyValues, printList, section, style, ui, warn, withProgress } from "../ui.js";
+import { failAndExit, info, ok, printKeyValues, printList, section, style, ui, warn, warnBlock, withProgress } from "../ui.js";
 
 type CommitOptions = {
   all?: boolean;
@@ -176,13 +176,11 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
 
   const staged = getStagedContext(MAX_PROMPT_PATCH_CHARS);
   if (staged.files.length === 0) {
-    failAndExit("No staged files. Stage changes first or run `gemit commit --all`.");
+    failAndExit("No staged files.", "Run `git add <file>` to stage changes, or use `gemit commit --all` to stage everything.");
   }
 
   if (staged.metrics.fileCount >= WARN_SPLIT_FILE_COUNT) {
-    console.log(
-      warn("TIP", `${staged.metrics.fileCount} staged files detected. Consider splitting into multiple commits.`)
-    );
+    warnBlock(`${staged.metrics.fileCount} staged files detected. Consider splitting into multiple commits for a cleaner history.`);
   }
 
   printList(
@@ -199,9 +197,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
   const detectedType = detectCommitType(staged);
 
   if (staged.metrics.patchChars > WARN_PROMPT_DIFF_CHARS) {
-    console.log(
-      warn("WARNING", `Large staged diff (${staged.metrics.patchChars} chars). Prompt will include a truncated patch excerpt.`)
-    );
+    warnBlock(`Large staged diff (${staged.metrics.patchChars} chars). The patch sent to the AI will be truncated — commit quality may be reduced.`);
   }
 
   const template = loadPrompt("commit");
@@ -218,7 +214,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
   const suggestedMessage = extractMessageText(result.content);
 
   if (!suggestedMessage) {
-    failAndExit("Failed to generate commit message.");
+    failAndExit("Failed to generate commit message.", "Check your API key and network connection, then try again.");
   }
 
   printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
@@ -246,6 +242,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
     failAndExit("Failed to create commit. Check if you have staged files.");
   }
 
+  section("3. FINISH");
   await maybePushCurrentBranch();
 }
 

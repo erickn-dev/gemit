@@ -5,7 +5,7 @@ import { getGlobalEnvPath } from "./config.js";
 import { getCliVersion } from "./cli-version.js";
 import { bad, ok, warn } from "./ui.js";
 
-const PACKAGE_NAME = "gemit-cli";
+const PACKAGE_NAME = "gemit-cli"; 
 const CHECK_INTERVAL_MS = 1000 * 60 * 60 * 12;
 const CHECK_TIMEOUT_MS = 2500;
 const UPDATE_TIMEOUT_MS = 1000 * 60 * 2;

@@ -47,11 +47,11 @@ export async function suggestBranch(description: string): Promise<void> {
   const branchName = sanitizeBranchName(rawBranch);
 
   if (!branchName) {
-    failAndExit("Failed to generate branch name.");
+    failAndExit("Failed to generate branch name.", "Try rephrasing your description with more specific details.");
   }
 
   if (branchExists(branchName)) {
-    failAndExit(`Branch already exists: ${branchName}`);
+    failAndExit(`Branch already exists: ${branchName}`, "Use a more specific description or delete the existing branch first.");
   }
 
   section("SUGGESTED BRANCH");

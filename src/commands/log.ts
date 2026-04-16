@@ -16,13 +16,17 @@ function formatBranchContextForPrompt(): string {
   const context = getBranchContext();
 
   if (context.commits.length === 0) {
-    failAndExit(`No commits found on current branch against ${context.baseRef}.`);
+    failAndExit(`No commits found on current branch against ${context.baseRef}.`, "Make at least one commit on this branch before running this command.");
   }
 
   const commits = context.commits.map((commit) => {
     const body = commit.body ? ` | body: ${commit.body.replace(/\s+/g, " ").trim()}` : "";
     return `- ${commit.hash.slice(0, 7)} | ${commit.subject}${body}`;
   });
+
+  const patchBlock = context.patch
+    ? `${context.patch}${context.patchTruncated ? "\n(truncated)" : ""}`
+    : "(none)";
 
   return [
     `Current branch: ${getCurrentBranch()}`,
@@ -36,6 +40,9 @@ function formatBranchContextForPrompt(): string {
     "",
     "Diff stat:",
     context.diffStat || "(none)",
+    "",
+    "Code diff:",
+    patchBlock,
   ].join("\n");
 }
 
@@ -51,7 +58,7 @@ export async function summarizeBranchLog(): Promise<void> {
   const summary = extractMessageText(response.content);
 
   if (!summary) {
-    failAndExit("Failed to generate branch summary.");
+    failAndExit("Failed to generate branch summary.", "Check your API key and network connection, then try again.");
   }
 
   section("BRANCH SUMMARY");

@@ -98,7 +98,11 @@ export type BranchContext = {
   commits: GitCommit[];
   diffStat: string;
   changedFiles: string;
+  patch: string;
+  patchTruncated: boolean;
 };
+
+const MAX_BRANCH_PATCH_CHARS = 15000;
 
 function resolveBaseRef(): string {
   const remote = getDefaultRemote();
@@ -193,13 +197,97 @@ export function getBranchContext(): BranchContext {
     .toString()
     .trim();
 
+  const patchRaw = execFileSync("git", ["diff", `${mergeBase}..HEAD`], { stdio: "pipe" })
+    .toString()
+    .trim();
+
+  const patchTruncated = patchRaw.length > MAX_BRANCH_PATCH_CHARS;
+  const patch = patchTruncated ? patchRaw.slice(0, MAX_BRANCH_PATCH_CHARS) : patchRaw;
+
   return {
     baseRef,
     mergeBase,
     commits: parseCommits(commitsRaw),
     diffStat,
     changedFiles,
+    patch,
+    patchTruncated,
   };
+}
+
+export function getCommitRangeDiffStat(limit: number): string {
+  try {
+    return execFileSync("git", ["diff", `HEAD~${limit}..HEAD`, "--stat"], { stdio: "pipe" })
+      .toString()
+      .trim();
+  } catch {
+    return "(could not read diff stat)";
+  }
+}
+
+export type ReleaseRange = {
+  /** The tag used as the lower bound, or null if there are no previous tags */
+  fromTag: string | null;
+  commits: GitCommit[];
+  diffStat: string;
+};
+
+/**
+ * Returns commits and diff stat between the last release tag and HEAD.
+ * Falls back to the full history (up to `fallbackLimit`) when no tag exists.
+ */
+export function getCommitsSinceLastRelease(fallbackLimit = 50): ReleaseRange {
+  // Find the most recent tag reachable from HEAD
+  let fromTag: string | null = null;
+  try {
+    fromTag = execFileSync("git", ["describe", "--tags", "--abbrev=0", "HEAD"], { stdio: "pipe" })
+      .toString()
+      .trim();
+  } catch {
+    // no tags at all
+  }
+
+  const rangeArg = fromTag ? `${fromTag}..HEAD` : `HEAD~${fallbackLimit}..HEAD`;
+
+  let commits: GitCommit[] = [];
+  try {
+    const raw = execFileSync(
+      "git",
+      ["log", "--reverse", "--pretty=format:%H%x1f%s%x1f%b%x1f%ad%x1f%an%x1e", "--date=short", rangeArg],
+      { stdio: "pipe" }
+    )
+      .toString()
+      .trim();
+
+    commits = raw
+      .split("\x1e")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const [hash = "", subject = "", body = "", date = "", author = ""] = entry.split("\x1f");
+        return {
+          hash: hash.trim(),
+          subject: subject.trim(),
+          body: body.trim(),
+          date: date.trim(),
+          author: author.trim(),
+        };
+      })
+      .filter((c) => Boolean(c.hash) && Boolean(c.subject));
+  } catch {
+    // leave commits empty
+  }
+
+  let diffStat = "";
+  try {
+    diffStat = execFileSync("git", ["diff", "--stat", rangeArg], { stdio: "pipe" })
+      .toString()
+      .trim();
+  } catch {
+    // leave empty
+  }
+
+  return { fromTag, commits, diffStat };
 }
 
 export function getCommitHistory(limit = 120): GitCommit[] {

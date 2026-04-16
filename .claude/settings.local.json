@@ -9,7 +9,8 @@
       "WebFetch(domain:api.github.com)",
       "Bash(curl -s https://raw.githubusercontent.com/Gitlawb/openclaude/main/src/main.tsx)",
       "Bash(curl *)",
-      "Bash(npm version *)"
+      "Bash(npm version *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

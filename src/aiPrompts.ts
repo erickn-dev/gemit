@@ -8,17 +8,30 @@ export type PromptName = (typeof PROMPT_NAMES)[number];
 // Available template variables per prompt:
 // commit    -> {{detected_type}}, {{staged_files}}, {{summary}}, {{diff_stat}}, {{patch}}
 // branch    -> {{description}}
-// pr        -> {{branch_data}}
-// changelog -> {{commit_limit}}, {{commit_history}}
-// log       -> {{branch_context}}
+// pr        -> {{branch_data}}  (includes commits, changed files, diff stat, code diff)
+// changelog -> {{new_version}}, {{from_tag}}, {{commit_count}}, {{range_label}}, {{commit_history}}, {{diff_stat}}
+// log       -> {{branch_context}}  (includes commits, changed files, diff stat, code diff)
 
 export const DEFAULT_PROMPTS: Record<PromptName, string> = {
-  commit: `Write one Conventional Commit message in English based on the staged changes.
+  commit: `You are a senior engineer writing a Conventional Commit message for a GitFlow repository.
+
 Rules:
-- Start with this likely type unless evidence strongly suggests another one: {{detected_type}}
-- Use format: <type>(optional-scope): <subject>
-- Keep subject concise and specific
-- Return ONLY the commit message, without code fences or explanations
+- Format: <type>(<scope>): <subject>
+- Start with "{{detected_type}}" unless the diff clearly indicates a different type:
+    feat     – new capability or behavior
+    fix      – corrects a bug or regression
+    refactor – restructures code without changing behavior
+    perf     – improves performance
+    test     – adds or corrects tests
+    docs     – documentation only
+    chore    – build, config, dependencies, tooling
+    ci       – CI/CD pipeline changes
+    style    – formatting, whitespace (no logic change)
+- Scope: derive from the primary module, directory, or domain affected (e.g. auth, api, ui, db)
+  Omit scope only when the change is truly cross-cutting
+- Subject: imperative mood, lowercase, no trailing period, max 72 chars
+  Derive from the actual diff — do not simply echo file names as the subject
+- Return ONLY the commit message line, no explanation, no code fences
 
 Staged files:
 {{staged_files}}
@@ -32,45 +45,98 @@ Diff stat:
 Patch excerpt:
 {{patch}}`,
 
-  branch: `Generate a git branch name for the feature described below.
+  branch: `You are naming a Git branch following the GitFlow convention.
+
 Rules:
 - Format: <type>/<kebab-case-description>
-- Allowed types: feat, fix, chore, docs, refactor, test
-- Maximum length: 50 characters
-- Return ONLY the branch name in English
+- GitFlow branch types:
+    feature  – new feature to be merged into develop
+    bugfix   – bug fix to be merged into develop
+    hotfix   – urgent production fix to be merged into main and develop
+    release  – release preparation (use only when description mentions a version or release)
+    chore    – maintenance, dependency updates, tooling
+    docs     – documentation only
+    refactor – code restructuring with no behavior change
+    test     – tests only
+- Description: 2–5 words in kebab-case, specific and meaningful, no filler words (e.g. "add", "update", "do")
+- Maximum total length: 50 characters
+- Return ONLY the branch name, no explanation
 
 Description:
 {{description}}`,
 
-  pr: `You are generating content for a GitHub Pull Request.
-Based on the branch data below, create:
-- A concise PR title in English (max 72 chars)
-- A clear markdown description with sections: Summary, Changes, Testing
+  pr: `You are a senior engineer writing a GitHub Pull Request for a GitFlow repository.
 
-Return exactly in this format:
+Based on the branch data below, produce a PR title and a markdown body.
+
+Rules:
+- Title (max 72 chars): derive from the code diff; treat commit messages as hints only
+  Format: <type>: <concise description in imperative mood>
+  Detect the branch type from the name prefix (feature/, bugfix/, hotfix/, release/) and reflect it
+- Be specific: name the modules, files, or functions most affected
+- Prefer evidence from the code diff over commit messages when they conflict
+- Do not invent behavior not visible in the diff or commit history
+- Testing section: list concrete, verifiable steps — not generic placeholders
+- Return ONLY the structure below, no extra commentary
+
 TITLE: <title>
 DESCRIPTION:
-<markdown>
+## Summary
+<1–3 sentences on what changed and why>
+
+## Changes
+<bulleted list of concrete changes, grouped by area when relevant>
+
+## Testing
+<checklist of steps to verify the change>
 
 Branch data:
 {{branch_data}}`,
 
-  changelog: `Crie um CHANGELOG em markdown com base no historico de commits abaixo.
-Regras:
-- Responda em portugues do Brasil
-- Estrutura: titulo, resumo curto e secoes por tipo de mudanca (Features, Fixes, Refactors, Docs, Chore)
-- Inclua uma secao "Commits" com lista curta de hashes e assuntos
-- Nao invente mudancas
+  changelog: `Você é um engenheiro sênior gerando um CHANGELOG profissional em português do Brasil.
 
-Historico recente de commits (ultimos {{commit_limit}} commits):
-{{commit_history}}`,
+Siga o padrão Keep a Changelog (https://keepachangelog.com) adaptado para GitFlow.
 
-  log: `Resuma em portugues do Brasil o que foi feito neste branch.
+CONTEXTO DESTA RELEASE:
+- Nova versão: {{new_version}}
+- Versão anterior (tag base): {{from_tag}}
+- Intervalo analisado: {{range_label}}
+- Total de commits neste intervalo: {{commit_count}}
+
+Regras CRÍTICAS:
+- Documente APENAS as mudanças contidas nos commits e diff stat abaixo
+- NÃO mencione nada que não esteja explicitamente neste intervalo de commits
+- Se o número de commits for pequeno, o changelog deve ser pequeno — não invente entradas
+- Cabeçalho: ## [{{new_version}}] — use a data do commit mais recente da lista
+- Categorias permitidas — inclua apenas as que tiverem entradas reais:
+    ### Adicionado    – novas funcionalidades
+    ### Alterado      – mudanças em funcionalidades existentes
+    ### Corrigido     – correções de bugs
+    ### Removido      – funcionalidades removidas
+    ### Descontinuado – funcionalidades marcadas para remoção futura
+    ### Segurança     – correções de vulnerabilidades
+- Cada entrada: frase curta, imperativa, sem ponto final
+- Inclua ao final uma seção ### Commits com os hashes curtos, datas e assuntos
+- Retorne apenas o markdown, sem explicações adicionais
+
+Commits neste intervalo ({{range_label}}):
+{{commit_history}}
+
+Diff stat:
+{{diff_stat}}`,
+
+  log: `Você é um engenheiro sênior resumindo o trabalho de um branch GitFlow em português do Brasil.
+
 Regras:
-- Use linguagem natural e objetiva
-- 1 paragrafo curto + lista com bullets das principais mudancas
-- Cite impacto tecnico quando possivel
-- Nao invente nada fora do contexto fornecido
+- Identifique o tipo do branch (feature, bugfix, hotfix, release) pelo nome e pelo contexto
+- Estrutura obrigatória:
+    1. Uma frase de contexto: qual era o objetivo do branch
+    2. Parágrafo curto (2–4 frases) descrevendo o que foi implementado
+    3. Lista de bullets com as principais mudanças técnicas
+- Derive o resumo do diff de código; use as mensagens de commit apenas como complemento
+- Cite módulos, arquivos ou funções específicos quando relevante
+- Não invente nada fora do contexto fornecido
+- Não inclua conclusões genéricas ("o branch está pronto para merge", etc.)
 
 Contexto do branch:
 {{branch_context}}`,

@@ -109,10 +109,33 @@ export function printList(title: string, items: string[]): void {
   }
 }
 
+// ╭─ Warning ──────────────────────────
+// │  ⚠ message
+// ╰────────────────────────────────────
+export function warnBlock(message: string): void {
+  const width = termWidth();
+  const topLabel = ` Warning `;
+  const topFill = symbols.h.repeat(Math.max(0, width - topLabel.length - 2));
+  const botFill = symbols.h.repeat(Math.max(0, width - 2));
+
+  console.warn();
+  console.warn(
+    style(symbols.tl + symbols.h, ui.yellow) +
+    style(topLabel, ui.yellow, ui.bold) +
+    style(topFill, ui.yellow)
+  );
+  console.warn(
+    style(symbols.v + " ", ui.yellow) +
+    ` ${style(symbols.warn, ui.yellow, ui.bold)} ${style(message, ui.yellow)}`
+  );
+  console.warn(style(symbols.bl + botFill + symbols.br, ui.yellow));
+  console.warn();
+}
+
 // ╭─ Error ────────────────────────────
 // │  ✗ message
 // ╰────────────────────────────────────
-export function failAndExit(message: string): never {
+export function failAndExit(message: string, hint?: string): never {
   const width = termWidth();
   const topLabel = ` Error `;
   const topFill = symbols.h.repeat(Math.max(0, width - topLabel.length - 2));
@@ -126,8 +149,14 @@ export function failAndExit(message: string): never {
   );
   console.error(
     style(symbols.v + " ", ui.red) +
-    ` ${style(symbols.cross, ui.red, ui.bold)} ${message}`
+    ` ${style(symbols.cross, ui.red, ui.bold)} ${style(message, ui.red)}`
   );
+  if (hint) {
+    console.error(
+      style(symbols.v + " ", ui.red) +
+      `   ${style(symbols.arrow, ui.gray)} ${style(hint, ui.gray, ui.italic)}`
+    );
+  }
   console.error(style(symbols.bl + botFill + symbols.br, ui.red));
   console.error();
   process.exit(1);
@@ -155,12 +184,13 @@ export async function withProgress<T>(message: string, work: () => Promise<T>): 
     const result = await work();
     clearInterval(timer);
     process.stdout.write("\r\x1b[2K");
-    console.log(`  ${ok(message)}`);
+    console.log(`  ${ok("Done")}  ${style(message, ui.dim)}`);
     return result;
   } catch (error) {
     clearInterval(timer);
     process.stdout.write("\r\x1b[2K");
-    console.log(`  ${bad(message)}`);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`  ${bad("Failed")}  ${style(reason, ui.dim)}`);
     throw error;
   }
 }
