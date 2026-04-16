@@ -11,11 +11,13 @@ import {
   stageAll,
   type StagedContext,
 } from "../git.js";
-import { failAndExit, info, ok, printKeyValues, printList, section, warn, withProgress } from "../ui.js";
+import { failAndExit, info, ok, printKeyValues, printList, section, style, ui, warn, withProgress } from "../ui.js";
 
 type CommitOptions = {
   all?: boolean;
   check?: boolean;
+  amend?: boolean;
+  dryRun?: boolean;
 };
 
 const MAX_PROMPT_PATCH_CHARS = 10000;
@@ -158,6 +160,10 @@ async function maybePushCurrentBranch(): Promise<void> {
 }
 
 export async function generateCommit(options: CommitOptions = {}): Promise<void> {
+  if (options.amend) {
+    return amendLastCommit();
+  }
+
   const llm = getLLM();
 
   getGitStatus();
@@ -207,7 +213,7 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
     patch: `${staged.patch || "(none)"}${staged.metrics.truncated ? "\n(truncated)" : ""}`,
   });
 
-  section("3. SUGGEST");
+  section("2. SUGGEST");
   const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
   const suggestedMessage = extractMessageText(result.content);
 
@@ -216,7 +222,17 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
   }
 
   printKeyValues([{ key: "Suggested commit", value: suggestedMessage }]);
-  const finalMessage = suggestedMessage;
+
+  if (options.dryRun) {
+    section("DRY RUN");
+    console.log(info("DRY RUN", "No commit was created (--dry-run mode)."));
+    console.log();
+    printList("Would commit these files", staged.files.map((f) => `${f.status} ${f.path}`));
+    printKeyValues([{ key: "Message", value: suggestedMessage }]);
+    console.log();
+    return;
+  }
+
   console.log()
   const confirmed = await askConfirmation("Commit using AI message? (Y/n): ", { defaultYes: true });
   if (!confirmed) {
@@ -225,10 +241,69 @@ export async function generateCommit(options: CommitOptions = {}): Promise<void>
   }
 
   try {
-    execFileSync("git", ["commit", "-m", finalMessage], { stdio: "inherit" });
+    execFileSync("git", ["commit", "-m", suggestedMessage], { stdio: "inherit" });
   } catch {
     failAndExit("Failed to create commit. Check if you have staged files.");
   }
 
   await maybePushCurrentBranch();
+}
+
+async function amendLastCommit(): Promise<void> {
+  const llm = getLLM();
+
+  let lastCommitHash: string;
+  let lastCommitMessage: string;
+  try {
+    lastCommitHash = execFileSync("git", ["rev-parse", "--short", "HEAD"], { stdio: "pipe" }).toString().trim();
+    lastCommitMessage = execFileSync("git", ["log", "-1", "--pretty=%B"], { stdio: "pipe" }).toString().trim();
+  } catch {
+    failAndExit("Could not read last commit. Make sure there is at least one commit.");
+  }
+
+  let commitDiff: string;
+  try {
+    const raw = execFileSync("git", ["show", "--stat", "HEAD"], { stdio: "pipe" }).toString().trim();
+    commitDiff = raw.length > MAX_PROMPT_PATCH_CHARS ? raw.slice(0, MAX_PROMPT_PATCH_CHARS) + "\n(truncated)" : raw;
+  } catch {
+    commitDiff = "(could not read diff)";
+  }
+
+  section("AMEND");
+  printKeyValues([
+    { key: "Last commit", value: style(lastCommitHash, ui.yellow) },
+    { key: "Current message", value: style(lastCommitMessage, ui.dim) },
+  ]);
+
+  const template = loadPrompt("commit");
+  const prompt = interpolate(template, {
+    detected_type: "refactor",
+    staged_files: "(already committed)",
+    summary: `Amending last commit: ${lastCommitMessage}`,
+    diff_stat: commitDiff,
+    patch: commitDiff,
+  });
+
+  const result = await withProgress("AI is generating a better message...", () => llm.invoke(prompt));
+  const suggestedMessage = extractMessageText(result.content);
+
+  if (!suggestedMessage) {
+    failAndExit("Failed to generate amended commit message.");
+  }
+
+  console.log();
+  printKeyValues([{ key: "New message", value: suggestedMessage }]);
+  console.log();
+  const confirmed = await askConfirmation("Amend commit with this message? (Y/n): ", { defaultYes: true });
+  if (!confirmed) {
+    console.log(warn("CANCELED", "Commit was not amended."));
+    return;
+  }
+
+  try {
+    execFileSync("git", ["commit", "--amend", "-m", suggestedMessage], { stdio: "inherit" });
+    console.log(ok("AMENDED", "Last commit message updated."));
+  } catch {
+    failAndExit("Failed to amend commit.");
+  }
 }

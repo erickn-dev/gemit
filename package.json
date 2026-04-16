@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
+    "gemit": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "build:secure": "npm run build && node scripts/build-secure.mjs",
     "prepack": "npm run build:secure",

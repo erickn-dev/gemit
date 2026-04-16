@@ -86,19 +86,35 @@ export function getPromptsDir(): string {
   return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "gemit", "prompts");
 }
 
+const LANGUAGE_INSTRUCTIONS: Record<string, Partial<Record<PromptName, string>>> = {
+  "pt-br": {
+    commit: "\nResponda em português do Brasil.",
+    branch: "\nResponda em português do Brasil.",
+    pr: "\nResponda em português do Brasil. Título e descrição em português.",
+  },
+};
+
 // Resolution order: global config dir > built-in default
+// If GEMIT_LANGUAGE is set and the prompt doesn't already have language instructions, appends language hint.
 export function loadPrompt(name: PromptName): string {
   const dir = getPromptsDir();
   const filePath = join(dir, `${name}.txt`);
 
+  let template: string;
   if (existsSync(filePath)) {
     const content = readFileSync(filePath, "utf8").trim();
-    if (content) {
-      return content;
-    }
+    template = content || DEFAULT_PROMPTS[name];
+  } else {
+    template = DEFAULT_PROMPTS[name];
   }
 
-  return DEFAULT_PROMPTS[name];
+  const lang = (process.env.GEMIT_LANGUAGE || "en").toLowerCase().trim();
+  const langHints = LANGUAGE_INSTRUCTIONS[lang];
+  if (langHints?.[name]) {
+    template = template + langHints[name];
+  }
+
+  return template;
 }
 
 // Replaces {{variable_name}} placeholders with the provided values
