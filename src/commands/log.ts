@@ -1,68 +1,78 @@
-import { interpolate, loadPrompt } from "../aiPrompts.js";
-import { createLLM, extractMessageText } from "../llm.js";
-import { getBranchContext, getCurrentBranch, getGitStatus } from "../git.js";
-import { failAndExit, printKeyValues, section, withProgress } from "../ui.js";
+import { interpolate, loadPrompt } from '../aiPrompts.js'
+import { createLLM, extractMessageText } from '../llm.js'
+import { getBranchContext, getCurrentBranch, getGitStatus } from '../git.js'
+import { failAndExit, printKeyValues, section, withProgress } from '../ui.js'
 
 function getLLM() {
-  try {
-    return createLLM();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    failAndExit(message);
-  }
+	try {
+		return createLLM()
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		failAndExit(message)
+	}
 }
 
 function formatBranchContextForPrompt(): string {
-  const context = getBranchContext();
+	const context = getBranchContext()
 
-  if (context.commits.length === 0) {
-    failAndExit(`No commits found on current branch against ${context.baseRef}.`, "Make at least one commit on this branch before running this command.");
-  }
+	if (context.commits.length === 0) {
+		failAndExit(
+			`No commits found on current branch against ${context.baseRef}.`,
+			'Make at least one commit on this branch before running this command.',
+		)
+	}
 
-  const commits = context.commits.map((commit) => {
-    const body = commit.body ? ` | body: ${commit.body.replace(/\s+/g, " ").trim()}` : "";
-    return `- ${commit.hash.slice(0, 7)} | ${commit.subject}${body}`;
-  });
+	const commits = context.commits.map((commit) => {
+		const body = commit.body
+			? ` | body: ${commit.body.replace(/\s+/g, ' ').trim()}`
+			: ''
+		return `- ${commit.hash.slice(0, 7)} | ${commit.subject}${body}`
+	})
 
-  const patchBlock = context.patch
-    ? `${context.patch}${context.patchTruncated ? "\n(truncated)" : ""}`
-    : "(none)";
+	const patchBlock = context.patch
+		? `${context.patch}${context.patchTruncated ? '\n(truncated)' : ''}`
+		: '(none)'
 
-  return [
-    `Current branch: ${getCurrentBranch()}`,
-    `Base branch: ${context.baseRef}`,
-    "",
-    "Commits:",
-    ...commits,
-    "",
-    "Changed files:",
-    context.changedFiles || "(none)",
-    "",
-    "Diff stat:",
-    context.diffStat || "(none)",
-    "",
-    "Code diff:",
-    patchBlock,
-  ].join("\n");
+	return [
+		`Current branch: ${getCurrentBranch()}`,
+		`Base branch: ${context.baseRef}`,
+		'',
+		'Commits:',
+		...commits,
+		'',
+		'Changed files:',
+		context.changedFiles || '(none)',
+		'',
+		'Diff stat:',
+		context.diffStat || '(none)',
+		'',
+		'Code diff:',
+		patchBlock,
+	].join('\n')
 }
 
 export async function summarizeBranchLog(): Promise<void> {
-  getGitStatus();
-  const llm = getLLM();
-  const branchContext = formatBranchContextForPrompt();
+	getGitStatus()
+	const llm = getLLM()
+	const branchContext = formatBranchContextForPrompt()
 
-  const template = loadPrompt("log");
-  const prompt = interpolate(template, { branch_context: branchContext });
+	const template = loadPrompt('log')
+	const prompt = interpolate(template, { branch_context: branchContext })
 
-  const response = await withProgress("AI is summarizing branch work...", () => llm.invoke(prompt));
-  const summary = extractMessageText(response.content);
+	const response = await withProgress('AI is summarizing branch work...', () =>
+		llm.invoke(prompt),
+	)
+	const summary = extractMessageText(response.content)
 
-  if (!summary) {
-    failAndExit("Failed to generate branch summary.", "Check your API key and network connection, then try again.");
-  }
+	if (!summary) {
+		failAndExit(
+			'Failed to generate branch summary.',
+			'Check your API key and network connection, then try again.',
+		)
+	}
 
-  section("BRANCH SUMMARY");
-  printKeyValues([{ key: "Branch", value: getCurrentBranch() }]);
-  console.log(summary);
-  console.log();
+	section('BRANCH SUMMARY')
+	printKeyValues([{ key: 'Branch', value: getCurrentBranch() }])
+	console.log(summary)
+	console.log()
 }

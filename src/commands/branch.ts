@@ -1,71 +1,95 @@
-import { execFileSync } from "child_process";
-import { interpolate, loadPrompt } from "../aiPrompts.js";
-import { createLLM, extractMessageText } from "../llm.js";
-import { askConfirmation } from "../prompts.js";
-import { branchExists, getGitStatus } from "../git.js";
-import { failAndExit, printKeyValues, section, warn, withProgress } from "../ui.js";
+import { execFileSync } from 'node:child_process'
+import { interpolate, loadPrompt } from '../aiPrompts.js'
+import { branchExists, getGitStatus } from '../git.js'
+import { createLLM, extractMessageText } from '../llm.js'
+import { askConfirmation } from '../prompts.js'
+import {
+	failAndExit,
+	printKeyValues,
+	section,
+	warn,
+	withProgress,
+} from '../ui.js'
 
 function sanitizeBranchName(rawName: string): string {
-  const normalized = rawName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9/-]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/\/{2,}/g, "/")
-    .replace(/^-+|-+$/g, "")
-    .replace(/^\/+|\/+$/g, "");
+	const normalized = rawName
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9/-]+/g, '-')
+		.replace(/-{2,}/g, '-')
+		.replace(/\/{2,}/g, '/')
+		.replace(/^-+|-+$/g, '')
+		.replace(/^\/+|\/+$/g, '')
 
-  const truncated = normalized.slice(0, 50).replace(/\/+$/g, "").replace(/-+$/g, "");
-  const candidate = truncated || "feat/update";
+	const truncated = normalized
+		.slice(0, 50)
+		.replace(/\/+$/g, '')
+		.replace(/-+$/g, '')
+	const candidate = truncated || 'feat/update'
 
-  if (!candidate.includes("/")) {
-    return `feat/${candidate}`;
-  }
+	if (!candidate.includes('/')) {
+		return `feat/${candidate}`
+	}
 
-  return candidate;
+	return candidate
 }
 
 function getLLM() {
-  try {
-    return createLLM();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    failAndExit(message);
-  }
+	try {
+		return createLLM()
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		failAndExit(message)
+	}
 }
 
+/*
+ * Turn a natural-language description into a branch name, validate that it is
+ * available, and create the branch only after user confirmation.
+ */
 export async function suggestBranch(description: string): Promise<void> {
-  getGitStatus();
-  const llm = getLLM();
+	getGitStatus()
+	const llm = getLLM()
 
-  const template = loadPrompt("branch");
-  const prompt = interpolate(template, { description });
+	const template = loadPrompt('branch')
+	const prompt = interpolate(template, { description })
 
-  const result = await withProgress("AI is thinking and requesting response...", () => llm.invoke(prompt));
-  const rawBranch = extractMessageText(result.content);
-  const branchName = sanitizeBranchName(rawBranch);
+	const result = await withProgress(
+		'AI is thinking and requesting response...',
+		() => llm.invoke(prompt),
+	)
+	const rawBranch = extractMessageText(result.content)
+	const branchName = sanitizeBranchName(rawBranch)
 
-  if (!branchName) {
-    failAndExit("Failed to generate branch name.", "Try rephrasing your description with more specific details.");
-  }
+	if (!branchName) {
+		failAndExit(
+			'Failed to generate branch name.',
+			'Try rephrasing your description with more specific details.',
+		)
+	}
 
-  if (branchExists(branchName)) {
-    failAndExit(`Branch already exists: ${branchName}`, "Use a more specific description or delete the existing branch first.");
-  }
+	if (branchExists(branchName)) {
+		failAndExit(
+			`Branch already exists: ${branchName}`,
+			'Use a more specific description or delete the existing branch first.',
+		)
+	}
 
-  section("SUGGESTED BRANCH");
-  printKeyValues([{ key: "Name", value: branchName }]);
+	section('SUGGESTED BRANCH')
+	printKeyValues([{ key: 'Name', value: branchName }])
 
-  const confirmed = await askConfirmation("Create branch with this name? (y/n): ");
-  if (!confirmed) {
-    console.log(warn("CANCELED", "Branch was not created."));
-    return;
-  }
+	const confirmed = await askConfirmation(
+		'Create branch with this name? (y/n): ',
+	)
+	if (!confirmed) {
+		console.log(warn('CANCELED', 'Branch was not created.'))
+		return
+	}
 
-  try {
-    execFileSync("git", ["checkout", "-b", branchName], { stdio: "inherit" });
-  } catch {
-    failAndExit("Failed to create branch.");
-  }
+	try {
+		execFileSync('git', ['checkout', '-b', branchName], { stdio: 'inherit' })
+	} catch {
+		failAndExit('Failed to create branch.')
+	}
 }
