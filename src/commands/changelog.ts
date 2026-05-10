@@ -1,112 +1,140 @@
-import { mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
-import { interpolate, loadPrompt } from "../aiPrompts.js";
-import { createLLM, extractMessageText } from "../llm.js";
-import { getCommitHistory, getCommitRangeDiffStat, getCurrentBranch, getGitStatus } from "../git.js";
-import { failAndExit, ok, printKeyValues, section, withProgress } from "../ui.js";
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { interpolate, loadPrompt } from '../aiPrompts.js'
+import {
+	getCommitHistory,
+	getCommitRangeDiffStat,
+	getCurrentBranch,
+	getGitStatus,
+} from '../git.js'
+import { createLLM, extractMessageText } from '../llm.js'
+import {
+	failAndExit,
+	ok,
+	printKeyValues,
+	section,
+	withProgress,
+} from '../ui.js'
 
-const DEFAULT_COMMIT_LIMIT = 20;
-const MAX_COMMIT_LIMIT = 200;
+const DEFAULT_COMMIT_LIMIT = 20
+const MAX_COMMIT_LIMIT = 200
 
 type ChangelogOptions = {
-  commits?: string;
-};
+	commits?: string
+}
 
 function getLLM() {
-  try {
-    return createLLM();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    failAndExit(message);
-  }
+	try {
+		return createLLM()
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		failAndExit(message)
+	}
 }
 
 function sanitizeName(raw: string): string {
-  const normalized = raw
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-+|-+$/g, "");
+	const normalized = raw
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, '-')
+		.replace(/-{2,}/g, '-')
+		.replace(/^-+|-+$/g, '')
 
-  return normalized || "changelog";
+	return normalized || 'changelog'
 }
 
 function formatDateForFile(now: Date): string {
-  return now.toISOString().slice(0, 10);
+	return now.toISOString().slice(0, 10)
 }
 
 function resolveCommitLimit(options?: ChangelogOptions): number {
-  const raw = options?.commits?.trim();
-  if (!raw) {
-    return DEFAULT_COMMIT_LIMIT;
-  }
+	const raw = options?.commits?.trim()
+	if (!raw) {
+		return DEFAULT_COMMIT_LIMIT
+	}
 
-  const parsed = Number.parseInt(raw, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    failAndExit("Invalid --commits value. Use a positive integer.");
-  }
+	const parsed = Number.parseInt(raw, 10)
+	if (Number.isNaN(parsed) || parsed <= 0) {
+		failAndExit('Invalid --commits value. Use a positive integer.')
+	}
 
-  return Math.min(parsed, MAX_COMMIT_LIMIT);
+	return Math.min(parsed, MAX_COMMIT_LIMIT)
 }
 
 function buildCommitHistoryPrompt(limit: number): string {
-  const commits = getCommitHistory(limit);
+	const commits = getCommitHistory(limit)
 
-  if (commits.length === 0) {
-    failAndExit("No commits found to generate changelog.", "Make at least one commit in this repository first.");
-  }
+	if (commits.length === 0) {
+		failAndExit(
+			'No commits found to generate changelog.',
+			'Make at least one commit in this repository first.',
+		)
+	}
 
-  const commitLines = commits
-    .map((commit) => {
-      const body = commit.body ? ` | body: ${commit.body.replace(/\s+/g, " ").trim()}` : "";
-      const date = commit.date || "unknown-date";
-      const author = commit.author || "unknown-author";
-      return `- ${date} | ${commit.hash.slice(0, 7)} | ${author} | ${commit.subject}${body}`;
-    })
-    .join("\n");
+	const commitLines = commits
+		.map((commit) => {
+			const body = commit.body
+				? ` | body: ${commit.body.replace(/\s+/g, ' ').trim()}`
+				: ''
+			const date = commit.date || 'unknown-date'
+			const author = commit.author || 'unknown-author'
+			return `- ${date} | ${commit.hash.slice(0, 7)} | ${author} | ${commit.subject}${body}`
+		})
+		.join('\n')
 
-  const diffStat = getCommitRangeDiffStat(limit);
+	const diffStat = getCommitRangeDiffStat(limit)
 
-  return [commitLines, "", "Overall diff stat:", diffStat].join("\n");
+	return [commitLines, '', 'Overall diff stat:', diffStat].join('\n')
 }
 
-export async function generateChangelog(nameArg?: string, options?: ChangelogOptions): Promise<void> {
-  getGitStatus();
-  const llm = getLLM();
-  const commitLimit = resolveCommitLimit(options);
+/*
+ * Generate a changelog file from the recent commit history and the AI summary
+ * response, then save it under the changelogs directory.
+ */
+export async function generateChangelog(
+	nameArg?: string,
+	options?: ChangelogOptions,
+): Promise<void> {
+	getGitStatus()
+	const llm = getLLM()
+	const commitLimit = resolveCommitLimit(options)
 
-  const branch = getCurrentBranch();
-  const baseName = sanitizeName((nameArg || branch).trim());
-  const date = formatDateForFile(new Date());
-  const fileName = `${baseName}-${date}.md`;
+	const branch = getCurrentBranch()
+	const baseName = sanitizeName((nameArg || branch).trim())
+	const date = formatDateForFile(new Date())
+	const fileName = `${baseName}-${date}.md`
 
-  const commitHistory = buildCommitHistoryPrompt(commitLimit);
+	const commitHistory = buildCommitHistoryPrompt(commitLimit)
 
-  const template = loadPrompt("changelog");
-  const prompt = interpolate(template, {
-    commit_limit: String(commitLimit),
-    commit_history: commitHistory,
-  });
+	const template = loadPrompt('changelog')
+	const prompt = interpolate(template, {
+		commit_limit: String(commitLimit),
+		commit_history: commitHistory,
+	})
 
-  const response = await withProgress("AI is generating changelog...", () => llm.invoke(prompt));
-  const changelog = extractMessageText(response.content);
+	const response = await withProgress('AI is generating changelog...', () =>
+		llm.invoke(prompt),
+	)
+	const changelog = extractMessageText(response.content)
 
-  if (!changelog) {
-    failAndExit("Failed to generate changelog content.", "Check your API key and network connection, then try again.");
-  }
+	if (!changelog) {
+		failAndExit(
+			'Failed to generate changelog content.',
+			'Check your API key and network connection, then try again.',
+		)
+	}
 
-  const outputDir = join(process.cwd(), "changelogs");
-  const outputPath = join(outputDir, fileName);
+	const outputDir = join(process.cwd(), 'changelogs')
+	const outputPath = join(outputDir, fileName)
 
-  mkdirSync(outputDir, { recursive: true });
-  writeFileSync(outputPath, `${changelog.trim()}\n`, "utf8");
+	mkdirSync(outputDir, { recursive: true })
+	writeFileSync(outputPath, `${changelog.trim()}\n`, 'utf8')
 
-  section("CHANGELOG GENERATED");
-  printKeyValues([
-    { key: "Status", value: ok("OK") },
-    { key: "File", value: outputPath },
-    { key: "Commits used", value: String(commitLimit) },
-  ]);
+	section('CHANGELOG GENERATED')
+	printKeyValues([
+		{ key: 'Status', value: ok('OK') },
+		{ key: 'File', value: outputPath },
+		{ key: 'Commits used', value: String(commitLimit) },
+	])
 }

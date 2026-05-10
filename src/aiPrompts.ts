@@ -1,19 +1,27 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
-export const PROMPT_NAMES = ["commit", "branch", "pr", "changelog", "log"] as const;
-export type PromptName = (typeof PROMPT_NAMES)[number];
+export const PROMPT_NAMES = [
+	'commit',
+	'branch',
+	'pr',
+	'changelog',
+	'log',
+] as const
+export type PromptName = (typeof PROMPT_NAMES)[number]
 
-// Available template variables per prompt:
-// commit    -> {{detected_type}}, {{staged_files}}, {{summary}}, {{diff_stat}}, {{patch}}
-// branch    -> {{description}}
-// pr        -> {{branch_data}}  (includes commits, changed files, diff stat, code diff)
-// changelog -> {{new_version}}, {{from_tag}}, {{commit_count}}, {{range_label}}, {{commit_history}}, {{diff_stat}}
-// log       -> {{branch_context}}  (includes commits, changed files, diff stat, code diff)
+/*
+ * Available template variables per prompt:
+ * commit    -> {{detected_type}}, {{staged_files}}, {{summary}}, {{diff_stat}}, {{patch}}
+ * branch    -> {{description}}
+ * pr        -> {{branch_data}}  (includes commits, changed files, diff stat, code diff)
+ * changelog -> {{new_version}}, {{from_tag}}, {{commit_count}}, {{range_label}}, {{commit_history}}, {{diff_stat}}
+ * log       -> {{branch_context}}  (includes commits, changed files, diff stat, code diff)
+ */
 
 export const DEFAULT_PROMPTS: Record<PromptName, string> = {
-  commit: `You are a senior engineer writing a Conventional Commit message for a GitFlow repository.
+	commit: `You are a senior engineer writing a Conventional Commit message for a GitFlow repository.
 
 Rules:
 - Format: <type>(<scope>): <subject>
@@ -45,7 +53,7 @@ Diff stat:
 Patch excerpt:
 {{patch}}`,
 
-  branch: `You are naming a Git branch following the GitFlow convention.
+	branch: `You are naming a Git branch following the GitFlow convention.
 
 Rules:
 - Format: <type>/<kebab-case-description>
@@ -65,7 +73,7 @@ Rules:
 Description:
 {{description}}`,
 
-  pr: `You are a senior engineer writing a GitHub Pull Request for a GitFlow repository.
+	pr: `You are a senior engineer writing a GitHub Pull Request for a GitFlow repository.
 
 Based on the branch data below, produce a PR title and a markdown body.
 
@@ -93,7 +101,7 @@ DESCRIPTION:
 Branch data:
 {{branch_data}}`,
 
-  changelog: `Você é um engenheiro sênior gerando um CHANGELOG profissional em português do Brasil.
+	changelog: `Você é um engenheiro sênior gerando um CHANGELOG profissional em português do Brasil.
 
 Siga o padrão Keep a Changelog (https://keepachangelog.com) adaptado para GitFlow.
 
@@ -125,7 +133,7 @@ Commits neste intervalo ({{range_label}}):
 Diff stat:
 {{diff_stat}}`,
 
-  log: `Você é um engenheiro sênior resumindo o trabalho de um branch GitFlow em português do Brasil.
+	log: `Você é um engenheiro sênior resumindo o trabalho de um branch GitFlow em português do Brasil.
 
 Regras:
 - Identifique o tipo do branch (feature, bugfix, hotfix, release) pelo nome e pelo contexto
@@ -140,66 +148,91 @@ Regras:
 
 Contexto do branch:
 {{branch_context}}`,
-};
+}
 
 export function getPromptsDir(): string {
-  if (process.platform === "win32") {
-    return join(process.env.APPDATA || join(homedir(), ".gemit"), "gemit", "prompts");
-  }
-  if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "gemit", "prompts");
-  }
-  return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "gemit", "prompts");
+	if (process.platform === 'win32') {
+		return join(
+			process.env.APPDATA || join(homedir(), '.gemit'),
+			'gemit',
+			'prompts',
+		)
+	}
+	if (process.platform === 'darwin') {
+		return join(homedir(), 'Library', 'Application Support', 'gemit', 'prompts')
+	}
+	return join(
+		process.env.XDG_CONFIG_HOME || join(homedir(), '.config'),
+		'gemit',
+		'prompts',
+	)
 }
 
-const LANGUAGE_INSTRUCTIONS: Record<string, Partial<Record<PromptName, string>>> = {
-  "pt-br": {
-    commit: "\nResponda em português do Brasil.",
-    branch: "\nResponda em português do Brasil.",
-    pr: "\nResponda em português do Brasil. Título e descrição em português.",
-  },
-};
+/*
+ * Prompt-specific language hints are appended on top of the built-in or custom
+ * template when the current language requires it.
+ */
+const LANGUAGE_INSTRUCTIONS: Record<
+	string,
+	Partial<Record<PromptName, string>>
+> = {
+	'pt-br': {
+		commit: '\nResponda em português do Brasil.',
+		branch: '\nResponda em português do Brasil.',
+		pr: '\nResponda em português do Brasil. Título e descrição em português.',
+	},
+}
 
-// Resolution order: global config dir > built-in default
-// If GEMIT_LANGUAGE is set and the prompt doesn't already have language instructions, appends language hint.
+/*
+ * Load a prompt from the global config directory when present, otherwise use
+ * the built-in default and append language-specific hints when needed.
+ */
 export function loadPrompt(name: PromptName): string {
-  const dir = getPromptsDir();
-  const filePath = join(dir, `${name}.txt`);
+	const dir = getPromptsDir()
+	const filePath = join(dir, `${name}.txt`)
 
-  let template: string;
-  if (existsSync(filePath)) {
-    const content = readFileSync(filePath, "utf8").trim();
-    template = content || DEFAULT_PROMPTS[name];
-  } else {
-    template = DEFAULT_PROMPTS[name];
-  }
+	let template: string
+	if (existsSync(filePath)) {
+		const content = readFileSync(filePath, 'utf8').trim()
+		template = content || DEFAULT_PROMPTS[name]
+	} else {
+		template = DEFAULT_PROMPTS[name]
+	}
 
-  const lang = (process.env.GEMIT_LANGUAGE || "en").toLowerCase().trim();
-  const langHints = LANGUAGE_INSTRUCTIONS[lang];
-  if (langHints?.[name]) {
-    template = template + langHints[name];
-  }
+	const lang = (process.env.GEMIT_LANGUAGE || 'en').toLowerCase().trim()
+	const langHints = LANGUAGE_INSTRUCTIONS[lang]
+	if (langHints?.[name]) {
+		template = template + langHints[name]
+	}
 
-  return template;
+	return template
 }
 
-// Replaces {{variable_name}} placeholders with the provided values
-export function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? `{{${key}}}`);
+/*
+ * Replace {{variable_name}} placeholders with the provided values.
+ */
+export function interpolate(
+	template: string,
+	vars: Record<string, string>,
+): string {
+	return template.replace(
+		/\{\{(\w+)\}\}/g,
+		(_, key: string) => vars[key] ?? `{{${key}}}`,
+	)
 }
 
 export function initGlobalPrompts(overwrite = false): string[] {
-  const dir = getPromptsDir();
-  mkdirSync(dir, { recursive: true });
+	const dir = getPromptsDir()
+	mkdirSync(dir, { recursive: true })
 
-  const created: string[] = [];
-  for (const name of PROMPT_NAMES) {
-    const filePath = join(dir, `${name}.txt`);
-    if (!existsSync(filePath) || overwrite) {
-      writeFileSync(filePath, `${DEFAULT_PROMPTS[name]}\n`, "utf8");
-      created.push(filePath);
-    }
-  }
+	const created: string[] = []
+	for (const name of PROMPT_NAMES) {
+		const filePath = join(dir, `${name}.txt`)
+		if (!existsSync(filePath) || overwrite) {
+			writeFileSync(filePath, `${DEFAULT_PROMPTS[name]}\n`, 'utf8')
+			created.push(filePath)
+		}
+	}
 
-  return created;
+	return created
 }
