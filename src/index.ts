@@ -22,6 +22,7 @@ import { stashWithMessage } from './commands/stash.js'
 import { createRelease } from './commands/release.js'
 import { generateGitignore } from './commands/ignore.js'
 import { squashCommits } from './commands/squash.js'
+import { pullAndAnalyze } from './commands/pull.js'
 import { maybeAutoUpdate } from './update.js'
 import { failAndExit, style, ui } from './ui.js'
 
@@ -50,6 +51,7 @@ Examples:
   gemit pr
   gemit log
   gemit changelog
+  gemit pull
   gemit undo
   gemit review
   gemit stash
@@ -156,6 +158,13 @@ program
 		const description = parts.join(' ').trim()
 		await generateGitignore(description)
 	})
+
+program
+	.command('pull')
+	.description(
+		'Pull current branch and get an AI summary of what changed (routes, DTOs, breaking changes)',
+	)
+	.action(pullAndAnalyze)
 
 program
 	.command('squash <count>')

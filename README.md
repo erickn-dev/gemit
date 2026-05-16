@@ -22,6 +22,7 @@
 
 - **AI-Powered Suggestions** - Generate commit messages, branch names, and PR descriptions
 - **Code Review** - Get AI feedback on staged changes before committing
+- **Smart Pull** - Pull current branch and get an AI breakdown of new routes, DTOs, and breaking changes
 - **Conventional Commits** - Automatic conventional commit format with type detection
 - **Smart Branching** - Create semantic branches in `<type>/<kebab-case>` format
 - **Changelog Generation** - Automatic changelog creation from commit history
@@ -230,6 +231,36 @@ gemit changelog v2.0.0 -c 50 # Custom name, 50 commits
 ```
 
 ### New Commands
+
+#### `gemit pull`
+
+Pull the current branch and get an AI breakdown of what changed.
+
+```bash
+gemit pull
+```
+
+**What it does:**
+1. Detects current branch and remote automatically
+2. Runs `git pull <remote> <branch>` with live output
+3. Compares HEAD before/after — if already up to date, exits cleanly
+4. Sends the full diff to AI for analysis
+
+**AI output sections:**
+- **Summary** — 2-3 sentence overview of what changed
+- **New / Changed Endpoints** — HTTP method, path, headers, request body, response shape
+- **Breaking Changes** — renamed fields, removed routes, changed required params, migrations
+- **Other Changes** — env vars, config, dependencies
+
+**Supported backend frameworks:** Express, NestJS, FastAPI, Flask, Spring Boot, Laravel, Rails, Hono, Elysia, Fastify, and more.
+
+```bash
+# Example output for a backend update
+# [POST] /api/v2/users
+#   Headers: Authorization: Bearer <token>
+#   Body: { "name": "string", "email": "string", "role": "admin|user" }
+#   Response: { "id": "uuid", "createdAt": "ISO date" }
+```
 
 #### `gemit undo`
 
