@@ -145,11 +145,11 @@ program
 	.action(stashWithMessage)
 
 program
-	.command('release <version>')
+	.command('release [version]')
 	.description(
-		'Create a release: update package.json, generate changelog, commit and tag',
+		'Create a release: update project files, generate changelog, commit and tag',
 	)
-	.action((version: string) => createRelease(version))
+	.action((version?: string) => createRelease(version))
 
 program
 	.command('ignore <description...>')

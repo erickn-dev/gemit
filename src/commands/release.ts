@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { interpolate, loadPrompt } from '../aiPrompts.js'
 import { getCommitsSinceLastRelease, getDefaultRemote } from '../git.js'
 import { createLLM, extractMessageText } from '../llm.js'
-import { askConfirmation } from '../prompts.js'
+import { askConfirmation, askVersionBump } from '../prompts.js'
 import {
 	failAndExit,
 	ok,
@@ -205,8 +205,17 @@ function tagExists(tag: string): boolean {
  * Create a release by updating detected project files, optionally generating
  * changelog text, then committing and tagging the result.
  */
-export async function createRelease(version: string): Promise<void> {
+export async function createRelease(version?: string): Promise<void> {
 	const llm = getLLM()
+
+	if (!version) {
+		const projectFiles = detectProjectFiles()
+		const currentVersion =
+			projectFiles.length > 0
+				? (projectFiles[0].readVersion() ?? 'unknown')
+				: 'unknown'
+		version = await askVersionBump(currentVersion)
+	}
 
 	if (!version || !/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
 		failAndExit(
